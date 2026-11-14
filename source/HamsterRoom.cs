@@ -60,7 +60,7 @@ internal sealed class HamsterRoom : Form
                 if (!progress.GetItem(item)) return;
                 if (item.Bond > 0)
                 {
-                    art.ActionFrame = 9;
+                    art.ActionFrame = 12;
                     Celebrate("냠냠! Airi에게 " + item.Name + "을(를) 줬어요.");
                 }
                 else Celebrate(progress.Outfit == item.Id ? item.Name + " 착용!" : "옷을 벗었어요.");

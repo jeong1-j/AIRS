@@ -141,6 +141,7 @@ internal sealed class ControlWindow : Form
         hideBubble.Tick += delegate { DismissBubble(); };
         bubble.Dismissed += delegate { DismissBubble(); };
         progress.Changed += OnProgressChanged;
+        progress.Fed += walker.Feed;
         Shown += delegate { RefreshHamster(); };
         Resize += delegate { if (WindowState == FormWindowState.Minimized) HideToTray(); };
     }
@@ -172,10 +173,12 @@ internal sealed class ControlWindow : Form
     {
         SetMonitoring(false);
         progress.Changed -= OnProgressChanged;
+        progress.Fed -= walker.Feed;
         activeAccount = account;
         if (account == null && accounts != null) accounts.SignOut();
         progress = account == null ? HamsterProgress.Load() : HamsterProgress.Load(account);
         progress.Changed += OnProgressChanged;
+        progress.Fed += walker.Feed;
         bool admin = account != null && account.Admin;
         accountButton.Text = account == null ? "로그인 · 이 PC 계정" : "로그아웃 · " + (admin ? "관리자" : account.Name);
         accountMenu.Text = accountButton.Text;

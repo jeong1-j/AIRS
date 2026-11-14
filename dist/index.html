@@ -100,8 +100,8 @@
       </section>
 
       <section class="card weekly" id="weekly" data-panel="weekly" aria-labelledby="weekly-title" hidden>
-        <div class="card-head">
-          <div><p class="eyebrow">질문 습관 돌아보기</p><h2 id="weekly-title">주간 통계</h2></div>
+        <div class="card-head stats-heading">
+          <div><h2 id="weekly-title">주간 통계</h2><p>질문 습관을 한 주씩 돌아봐요.</p></div>
           <div class="week-nav" aria-label="통계 기간">
             <button id="previous-week" class="secondary" type="button" aria-label="이전 주">‹</button>
             <span id="week-range"></span>
@@ -109,12 +109,33 @@
           </div>
         </div>
         <div class="week-metrics" aria-live="polite">
+          <div><span>확인한 질문</span><strong id="week-total">0건</strong><small id="active-days">활동 0일</small></div>
+          <div><span>스스로 확인하는 질문</span><strong id="week-good">0건</strong><small>힌트 · 풀이 검토 · 근거 확인</small></div>
           <div><span>과의존 신호 비율</span><strong id="risk-rate">—</strong><small id="week-change">기록 대기</small></div>
-          <div><span>확인한 질문</span><strong id="week-total">0건</strong><small id="week-risk">과의존 신호 0건</small></div>
-          <div><span>스스로 확인하는 질문</span><strong id="week-good">0건</strong><small>힌트 · 내 풀이 검토 · 근거 확인</small></div>
         </div>
-        <div class="week-chart-head"><h3>요일별 질문</h3><p><span class="legend-risk"></span> 과의존 신호 <span class="legend-other"></span> 그 외</p></div>
-        <ol class="week-chart" id="week-chart" aria-label="요일별 질문 막대그래프"></ol>
+        <div class="stats-panels">
+          <section class="stats-panel" aria-labelledby="day-title">
+            <h3 id="day-title">요일별 질문</h3>
+            <p class="chart-caption">색상별 질문 수를 비교해요.</p>
+            <ol class="week-chart" id="week-chart" aria-label="요일별 질문 막대그래프"></ol>
+          </section>
+          <section class="stats-panel" aria-labelledby="mix-title">
+            <h3 id="mix-title">질문 구성</h3>
+            <div class="week-donut" id="week-donut" aria-hidden="true"><span><strong id="donut-total">0</strong><small>질문</small></span></div>
+            <ul class="stats-legend">
+              <li><i class="legend-good"></i><span>스스로 확인</span><b id="mix-good">0건</b></li>
+              <li><i class="legend-risk"></i><span>과의존 신호</span><b id="week-risk">0건</b></li>
+              <li><i class="legend-other"></i><span>그 외</span><b id="mix-other">0건</b></li>
+            </ul>
+          </section>
+          <section class="stats-panel matrix-panel" aria-labelledby="matrix-title">
+            <div class="week-chart-head"><h3 id="matrix-title">4주 활동 달력</h3><span class="chart-caption">색이 진할수록 확인한 질문이 많아요.</span></div>
+            <table class="activity-matrix">
+              <thead><tr><th scope="col">주 시작일</th><th scope="col">월</th><th scope="col">화</th><th scope="col">수</th><th scope="col">목</th><th scope="col">금</th><th scope="col">토</th><th scope="col">일</th></tr></thead>
+              <tbody id="activity-matrix"></tbody>
+            </table>
+          </section>
+        </div>
         <p class="week-note">질문 확인을 누른 기록으로 계산해요. 같은 날 확인한 동일한 문장은 한 번만 집계해요.</p>
       </section>
     </div>
@@ -126,7 +147,7 @@
   </footer>
 
   <div id="walker" class="walker" aria-hidden="true" hidden>
-    <div class="pet" id="walking-pet" data-outfit=""><canvas width="120" height="120"></canvas><span class="outfit"></span><span class="heart">♥</span></div>
+    <div class="pet" id="walking-pet" data-outfit="" title="Airi를 누른 채 옮겨 보세요"><canvas width="120" height="120"></canvas><span class="outfit"></span><span class="heart">♥</span><span class="walking-snack" hidden></span></div>
   </div>
 </body>
 </html>

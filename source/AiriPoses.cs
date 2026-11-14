@@ -16,6 +16,12 @@ internal static class AiriPoses
         new Rectangle(417, 756, 255, 281),
         new Rectangle(762, 752, 259, 285),
         new Rectangle(1100, 848, 308, 189),
+        new Rectangle(155, 81, 289, 359),
+        new Rectangle(635, 83, 289, 357),
+        new Rectangle(1117, 82, 287, 358),
+        new Rectangle(159, 577, 277, 358),
+        new Rectangle(651, 574, 266, 334),
+        new Rectangle(1085, 681, 354, 268),
     };
 
     // Standing, sniffing, looking up, washing, and napping. Each begins and ends at rest.
@@ -27,11 +33,12 @@ internal static class AiriPoses
         new[] { 4, 5, 11, 11, 11, 11, 11, 11, 11, 11, 5, 4 }
     };
     public const double RestFrameSeconds = .27;
-    private static readonly Image Atlas = Load();
+    private static readonly Image Atlas = Load("airi-poses.png");
+    private static readonly Image Interactions = Load("airi-interactions.png");
 
-    private static Image Load()
+    private static Image Load(string name)
     {
-        using (var stream = typeof(AiriPoses).Assembly.GetManifestResourceStream("airi-poses.png"))
+        using (var stream = typeof(AiriPoses).Assembly.GetManifestResourceStream(name))
         using (var image = Image.FromStream(stream)) return new Bitmap(image);
     }
 
@@ -46,10 +53,10 @@ internal static class AiriPoses
         return Rests[behavior].Length * RestFrameSeconds;
     }
 
-    public static void Draw(Graphics graphics, Size size, int frame, bool left, string outfit, bool happy)
+    public static void Draw(Graphics graphics, Size size, int frame, bool left, string outfit, bool happy, ShopItem food = null)
     {
         var source = Frames[frame];
-        float scale = System.Math.Min(size.Width / 330f, size.Height / 370f);
+        float scale = System.Math.Min(size.Width / 330f, size.Height / 370f) * (frame >= 12 ? .78f : 1);
         float w = source.Width * scale, h = source.Height * scale;
         var body = new RectangleF((size.Width - w) / 2, size.Height * .91f - h, w, h);
         graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
@@ -60,10 +67,10 @@ internal static class AiriPoses
             graphics.TranslateTransform(size.Width, 0);
             graphics.ScaleTransform(-1, 1);
         }
-        graphics.DrawImage(Atlas, body, source, GraphicsUnit.Pixel);
+        graphics.DrawImage(frame < 12 ? Atlas : Interactions, body, source, GraphicsUnit.Pixel);
         if (frame != 11)
         {
-            bool upright = frame >= 7;
+            bool upright = frame >= 7 && frame != 17;
             if (outfit == "scarf")
             {
                 using (var brush = new SolidBrush(Color.FromArgb(62, 115, 80)))
@@ -79,6 +86,18 @@ internal static class AiriPoses
                 HamsterArt.DrawRibbon(graphics, body.Left + w * .43f, body.Top + h * .16f, w * .23f);
         }
         graphics.Restore(state);
+        if (food != null && frame >= 12 && frame <= 14)
+        {
+            Color color = food.Id == "carrot" ? Color.FromArgb(230, 132, 63)
+                : food.Id == "seed" ? Color.FromArgb(155, 105, 59) : Color.FromArgb(200, 76, 86);
+            using (var fruit = new SolidBrush(color))
+            using (var leaf = new SolidBrush(Color.FromArgb(88, 129, 89)))
+            {
+                float x = body.Left + w * (left ? .12f : .80f), y = body.Top + h * .48f;
+                graphics.FillEllipse(fruit, x, y, w * .16f, w * .18f);
+                graphics.FillEllipse(leaf, x + w * .05f, y - w * .033f, w * .12f, w * .048f);
+            }
+        }
         if (happy && frame >= 7 && frame <= 10)
             HamsterArt.DrawBadge(graphics, "♥", body.Right - 5, body.Top - 3, 10, Color.FromArgb(181, 65, 97));
     }

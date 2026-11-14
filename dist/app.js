@@ -182,7 +182,10 @@ function useItem(item) {
     }
   }
   persist();
-  if (item.bond) react("냠냠! " + item.name + " · 친밀도 +" + item.bond, item.id);
+  if (item.bond) {
+    react("냠냠! " + item.name + " · 친밀도 +" + item.bond, item.id);
+    document.dispatchEvent(new CustomEvent("airi-feed", { detail: shopIcons[item.id] }));
+  }
   else react(progress.outfit ? item.name + " 착용!" : "옷을 벗었어요.", "happy");
 }
 

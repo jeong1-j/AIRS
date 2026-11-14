@@ -56,6 +56,7 @@ internal sealed class HamsterProgress
     public bool Unlimited { get; private set; }
 
     public event EventHandler Changed;
+    public event Action<ShopItem> Fed;
 
     public static HamsterProgress Load()
     {
@@ -163,6 +164,7 @@ internal sealed class HamsterProgress
             }
         }
         Save();
+        if (item.Kind == "snack" && Fed != null) Fed(item);
         return true;
     }
 }
@@ -294,6 +296,11 @@ internal sealed class HamsterWalker : Form
     private int shownPose = -1;
     private bool shownFacing;
     private Bitmap sprite;
+    private Point dragOffset;
+    private bool dragging;
+    private double dropVelocity;
+    private double feedTime;
+    private ShopItem food;
 
     public HamsterWalker()
     {
@@ -303,6 +310,7 @@ internal sealed class HamsterWalker : Form
         TopMost = true;
         StartPosition = FormStartPosition.Manual;
         ClientSize = new Size(51, 65);
+        Cursor = Cursors.Hand;
         motion.Tick += delegate { Walk(); };
     }
 
@@ -313,7 +321,7 @@ internal sealed class HamsterWalker : Form
         get
         {
             var value = base.CreateParams;
-            value.ExStyle |= 0x080800A0; // Layered, no activation, tool window, and mouse pass-through.
+            value.ExStyle |= 0x08080080; // Per-pixel transparency leaves empty pixels clickable through.
             return value;
         }
     }
@@ -345,6 +353,12 @@ internal sealed class HamsterWalker : Form
         }
         else
         {
+            dragging = false;
+            Capture = false;
+            dropVelocity = 0;
+            Cursor = Cursors.Hand;
+            feedTime = 0;
+            food = null;
             motion.Stop();
             clock.Stop();
             Hide();
@@ -365,16 +379,94 @@ internal sealed class HamsterWalker : Form
     private void Walk()
     {
         double now = clock.Elapsed.TotalSeconds;
-        screen = Screen.FromControl(this);
-        path.Step(Math.Min(.08, now - previousTime), WalkBounds());
+        double dt = Math.Min(.08, now - previousTime);
         previousTime = now;
+        screen = Screen.FromControl(this);
+        if (dragging)
+        {
+            if ((Control.MouseButtons & MouseButtons.Left) == MouseButtons.Left) MoveWithPointer();
+            else ReleaseHamster();
+        }
+        else if (dropVelocity > 0)
+        {
+            dropVelocity += 970 * dt;
+            var area = WalkBounds();
+            float y = Math.Min(area.Bottom, path.Position.Y + (float)(dropVelocity * dt));
+            path.Reposition(new PointF(path.Position.X, y));
+            if (y >= area.Bottom) { dropVelocity = 0; path.Land(); }
+        }
+        else if (feedTime > 0)
+        {
+            feedTime = Math.Max(0, feedTime - dt);
+            if (feedTime == 0) { food = null; path.Land(); }
+        }
+        else path.Step(dt, WalkBounds());
+        Place();
+    }
+
+    public void Feed(ShopItem item)
+    {
+        if (!Visible) return;
+        food = item;
+        feedTime = 2.6;
+        shownPose = -1;
+        Place();
+    }
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        if (e.Button != MouseButtons.Left) return;
+        dragOffset = e.Location;
+        dragging = true;
+        dropVelocity = 0;
+        Capture = true;
+        Cursor = Cursors.SizeAll;
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (dragging) MoveWithPointer();
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        base.OnMouseUp(e);
+        if (e.Button == MouseButtons.Left && dragging) ReleaseHamster();
+    }
+
+    protected override void OnMouseCaptureChanged(EventArgs e)
+    {
+        base.OnMouseCaptureChanged(e);
+        if (dragging && !Capture) ReleaseHamster();
+    }
+
+    private void MoveWithPointer()
+    {
+        Point mouse = System.Windows.Forms.Cursor.Position;
+        Rectangle work = Screen.FromPoint(mouse).WorkingArea;
+        int x = Math.Max(work.Left, Math.Min(mouse.X - dragOffset.X, work.Right - Width));
+        int y = Math.Max(work.Top, Math.Min(mouse.Y - dragOffset.Y, work.Bottom - Height - 8));
+        path.Reposition(new PointF(x, y));
+        Place();
+    }
+
+    private void ReleaseHamster()
+    {
+        dragging = false;
+        Capture = false;
+        Cursor = Cursors.Hand;
+        screen = Screen.FromControl(this);
+        dropVelocity = 30;
         Place();
     }
 
     private void Place()
     {
         var position = Point.Round(path.Position);
-        int pose = path.Pose;
+        int pose = dragging ? 15 + (int)(clock.Elapsed.TotalSeconds * 4) % 2
+            : dropVelocity > 0 ? 16 : feedTime > 0 ? 12 + (int)((2.6 - feedTime) / .24) % 3 : path.Pose;
         if (sprite == null || sprite.Size != ClientSize)
         {
             if (sprite != null) sprite.Dispose();
@@ -387,7 +479,7 @@ internal sealed class HamsterWalker : Form
             using (var graphics = Graphics.FromImage(sprite))
             {
                 graphics.Clear(Color.Transparent);
-                AiriPoses.Draw(graphics, ClientSize, pose, path.FacingLeft, outfit, happy);
+                AiriPoses.Draw(graphics, ClientSize, pose, path.FacingLeft, outfit, happy, food);
             }
         }
         if (Location != position) Location = position;
@@ -462,6 +554,7 @@ internal sealed class HamsterWalk
     private int behavior;
     private int arrivals;
     private double pace;
+    private double landing;
 
     public PointF Position { get; private set; }
     public bool FacingLeft { get; private set; }
@@ -482,6 +575,12 @@ internal sealed class HamsterWalk
     {
         Position = Clamp(Position, bounds);
         target = Clamp(target, bounds);
+        if (landing > 0)
+        {
+            landing -= dt;
+            if (landing <= 0) BeginRest(1);
+            return;
+        }
         double x = target.X - Position.X;
         double y = target.Y - Position.Y;
         double distance = Math.Sqrt(x * x + y * y);
@@ -513,6 +612,19 @@ internal sealed class HamsterWalk
             arrivals++;
             BeginRest(arrivals % 5 == 0 ? 4 : 1 + random.Next(3));
         }
+    }
+
+    public void Reposition(PointF position)
+    {
+        Position = target = position;
+        speed = 0;
+    }
+
+    public void Land()
+    {
+        Reposition(Position);
+        landing = .29;
+        Pose = 17;
     }
 
     private void BeginRest(int nextBehavior)

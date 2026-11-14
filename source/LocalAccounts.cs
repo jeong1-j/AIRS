@@ -22,6 +22,7 @@ internal sealed class LocalAccount
 internal sealed class LocalAccounts
 {
     private const int Iterations = 600000;
+    public const string AdminName = "airs";
     private static readonly DataContractJsonSerializer Serializer =
         new DataContractJsonSerializer(typeof(List<LocalAccount>));
     private readonly string path;
@@ -43,13 +44,15 @@ internal sealed class LocalAccounts
 
     public bool HasAdmin { get { return users.Any(user => user.Admin); } }
 
-    public LocalAccount Register(string name, string password, bool admin)
+    public LocalAccount Register(string name, string password)
     {
         name = name.Trim();
         if (!Regex.IsMatch(name, @"^[\p{L}\p{N}._-]{2,24}$"))
             throw new ArgumentException("아이디는 한글·영문·숫자·._-로 2~24자 입력해 주세요.");
-        if (password.Length < 10 || password.Length > 128)
-            throw new ArgumentException("비밀번호는 10~128자로 입력해 주세요.");
+        bool admin = string.Equals(name, AdminName, StringComparison.OrdinalIgnoreCase);
+        int minimum = admin ? 8 : 10;
+        if (password.Length < minimum || password.Length > 128)
+            throw new ArgumentException("비밀번호는 " + minimum + "~128자로 입력해 주세요.");
         if (admin && HasAdmin) throw new ArgumentException("이미 이 PC에 관리자가 등록되어 있어요.");
         if (users.Any(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase)))
             throw new ArgumentException("이미 사용 중인 아이디예요.");
@@ -60,7 +63,6 @@ internal sealed class LocalAccounts
         var updated = new List<LocalAccount>(users) { user };
         WriteJson(path, Serializer, updated);
         users.Add(user);
-        signedIn = user;
         return user;
     }
 
@@ -123,18 +125,30 @@ internal sealed class AccountWindow : Form
         var name = new TextBox { Bounds = new Rectangle(24, 126, 398, 27), Font = Palette.Font(11), MaxLength = 24, AccessibleName = "아이디" };
         var secret = new TextBox { Bounds = new Rectangle(24, 186, 398, 27), Font = Palette.Font(11), MaxLength = 128,
             UseSystemPasswordChar = true, AccessibleName = "비밀번호" };
-        var feedback = Palette.Label(accounts.HasAdmin ? "" : "이 PC에 처음 한 번만 관리자 계정을 만들 수 있어요.",
-            24, 219, 399, 33, 9, false, Palette.Muted);
+        var feedback = Palette.Label("처음이라면 아이디와 비밀번호를 적고 회원가입을 눌러 주세요.",
+            24, 219, 399, 34, 9, false, Palette.Muted);
         Controls.Add(name);
         Controls.Add(secret);
         Controls.Add(feedback);
 
-        Action<int> submit = mode =>
+        Action<bool> submit = register =>
         {
             try
             {
-                Account = mode == 0 ? accounts.SignIn(name.Text, secret.Text)
-                    : accounts.Register(name.Text, secret.Text, mode == 2);
+                if (register)
+                {
+                    bool adminName = string.Equals(name.Text.Trim(), LocalAccounts.AdminName, StringComparison.OrdinalIgnoreCase);
+                    if (adminName && !accounts.HasAdmin && MessageBox.Show(this,
+                        "이 PC의 관리자 계정을 만들까요? 관리자는 이 PC에 등록된 학생의 활동 집계를 볼 수 있어요.",
+                        "관리자 계정 만들기", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+                    var created = accounts.Register(name.Text, secret.Text);
+                    name.Text = created.Name;
+                    secret.Clear();
+                    feedback.Text = "계정을 만들었어요. 비밀번호를 다시 입력하고 로그인해 주세요.";
+                    secret.Focus();
+                    return;
+                }
+                Account = accounts.SignIn(name.Text, secret.Text);
                 if (Account == null)
                 {
                     feedback.Text = "아이디와 비밀번호를 확인해 주세요.";
@@ -146,21 +160,13 @@ internal sealed class AccountWindow : Form
             catch (IOException) { feedback.Text = "계정을 저장할 수 없어요. 잠시 뒤 다시 시도해 주세요."; }
             catch (UnauthorizedAccessException) { feedback.Text = "계정을 저장할 수 없어요. 잠시 뒤 다시 시도해 주세요."; }
         };
-        var signIn = Palette.Button("로그인", 24, 258, 120, 38, true);
-        signIn.Click += delegate { submit(0); };
+        var signIn = Palette.Button("로그인", 24, 262, 193, 42, true);
+        signIn.Click += delegate { submit(false); };
         AcceptButton = signIn;
-        var join = Palette.Button("학생 계정 만들기", 151, 258, 128, 38, false);
-        join.Click += delegate { submit(1); };
-        var admin = Palette.Button("첫 관리자 설정", 287, 258, 135, 38, false);
-        admin.Visible = !accounts.HasAdmin;
-        admin.Click += delegate
-        {
-            if (MessageBox.Show(this, "이 PC에서 학생 계정의 활동 집계를 볼 관리자 계정을 만들까요?",
-                "첫 관리자 설정", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes) submit(2);
-        };
+        var join = Palette.Button("회원가입", 229, 262, 193, 42, false);
+        join.Click += delegate { submit(true); };
         Controls.Add(signIn);
         Controls.Add(join);
-        Controls.Add(admin);
     }
 }
 
