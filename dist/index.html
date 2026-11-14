@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="좋은 질문으로 해바라기씨를 모아 햄스터 Airi를 돌봐요.">
+  <title>AIRS (AI Reliance Regulation System)</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="hamster-masks.css">
+  <script src="rules.js" defer></script>
+  <script src="app.js" defer></script>
+  <script src="airi-poses.js" defer></script>
+  <script src="walk.js" defer></script>
+  <script src="stats.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap bar">
+      <a class="brand" href="./index.html"><span class="brand-mark" aria-hidden="true">↶</span><span>AIRS <small>(AI Reliance Regulation System)</small></span></a>
+      <div class="bar-actions"><a class="download-link" href="https://github.com/jeong1-j/AIRS/releases/latest/download/AIRS-Windows.zip">Windows 다운로드</a><span class="wallet"><span class="seed-icon" aria-hidden="true"></span><span class="sr-only">해바라기씨 </span><b id="points">0알</b></span></div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <nav class="view-nav" aria-label="AIRS 화면">
+      <a href="#practice" data-view="practice" aria-current="page">질문 연습</a>
+      <a href="#hamster" data-view="hamster">햄스터 집</a>
+      <a href="#weekly" data-view="weekly">주간 통계</a>
+    </nav>
+    <section class="intro" data-panel="practice">
+      <p class="eyebrow"><span aria-hidden="true">✿</span> 햄스터와 함께하는 AI 질문 연습</p>
+      <h1>좋은 질문을 쓰고,<br><em>작은 햄스터를 키워요.</em></h1>
+      <p>AI에게 묻기 전, 어디까지 혼자 해볼 수 있을까요?<br class="wide"> 힌트나 검토를 요청하는 질문을 쓰면 햄스터가 기뻐해요.</p>
+      <div class="intro-art" aria-hidden="true"><span>✧</span><img src="assets/hamster.png" alt=""><span>✦</span></div>
+    </section>
+
+    <div class="workspace">
+      <section class="card practice" id="practice" data-panel="practice" aria-labelledby="practice-title">
+        <div class="card-head">
+          <div><p class="eyebrow">질문 연습</p><h2 id="practice-title">AI에게 무엇을 물어볼까요?</h2></div>
+          <span class="reward">좋은 질문 · 해바라기씨 10알</span>
+        </div>
+        <div class="examples" aria-label="예시 질문">
+          <button data-example="이 문제 정답만 알려 줘." type="button">정답만 요청</button>
+          <button data-example="이 그래프를 보고 실험 보고서 결론을 대신 써 줘." type="button">실험 보고서</button>
+          <button data-example="과제 코드를 처음부터 끝까지 짜 줘." type="button">코드 과제</button>
+          <button data-example="내 풀이에서 틀린 단계가 있는지 검산해 줘." type="button">풀이 검토</button>
+        </div>
+        <form id="prompt-form">
+          <label class="sr-only" for="prompt">AI 질문 초안</label>
+          <textarea id="prompt" maxlength="1500" spellcheck="false" placeholder="AI에게 보낼 질문을 적어 보세요."></textarea>
+          <div class="form-foot">
+            <p id="feedback" role="status">힌트, 내 풀이 검토, 근거 확인을 물어보세요.</p>
+            <button class="primary" type="submit">질문 확인 <span aria-hidden="true">↗</span></button>
+          </div>
+        </form>
+        <div class="coach" id="coach" hidden>
+          <div class="coach-head">
+            <img src="assets/hamster-peek.png" alt="">
+            <div><p class="eyebrow" id="coach-category">AI 과의존 신호</p><h3>Airi의 질문 코칭</h3></div>
+            <button class="icon-button" id="dismiss" type="button" aria-label="말풍선 닫기">×</button>
+          </div>
+          <p class="coach-evidence" id="evidence"></p>
+          <p id="reason"></p>
+          <p class="step" id="step"></p>
+          <p class="coach-label">이렇게 물어보면 어때요?</p>
+          <blockquote id="suggestion"></blockquote>
+          <button id="apply" class="primary" type="button">추천 질문 써보기 <span aria-hidden="true">↗</span></button>
+          <button id="keep" class="secondary" type="button">원래 질문 유지</button>
+        </div>
+      </section>
+
+      <section class="card habitat" id="hamster" data-panel="hamster" aria-labelledby="home-title" hidden>
+        <div class="card-head">
+          <div><p class="eyebrow">쉬어가는 시간</p><h2 id="home-title">햄스터 집</h2></div>
+          <span class="bond" id="bond">♡ 친밀도 0</span>
+        </div>
+        <div class="terrarium" id="terrarium">
+          <span class="room-window" aria-hidden="true"></span><span class="room-plant" aria-hidden="true">❋</span>
+          <span class="room-stars" aria-hidden="true">✧</span>
+          <div class="pet" id="pet" data-outfit="">
+            <img src="assets/hamster.png" alt="두 발로 서 있는 햄스터">
+            <span class="outfit" aria-hidden="true"></span><span class="heart" aria-hidden="true">♥</span>
+          </div>
+          <span id="mood" class="mood">첫 만남</span>
+          <span id="food-reaction" class="food-reaction" aria-hidden="true" hidden></span>
+        </div>
+        <div class="habitat-foot">
+          <button id="roam" class="secondary" type="button" aria-pressed="false">산책시키기</button>
+          <button id="pet-play" class="secondary" type="button">놀아주기</button>
+        </div>
+        <p id="pet-feedback" class="pet-feedback" role="status">간식을 먹으면 친밀도가 올라가요.</p>
+      </section>
+
+      <section class="card shop" data-panel="hamster" aria-labelledby="shop-title" hidden>
+        <div class="card-head">
+          <div><p class="eyebrow">해바라기씨 사용</p><h2 id="shop-title">햄스터 상점</h2></div>
+        </div>
+        <div class="shop-grid" id="shop"></div>
+      </section>
+
+      <section class="card weekly" id="weekly" data-panel="weekly" aria-labelledby="weekly-title" hidden>
+        <div class="card-head">
+          <div><p class="eyebrow">질문 습관 돌아보기</p><h2 id="weekly-title">주간 통계</h2></div>
+          <div class="week-nav" aria-label="통계 기간">
+            <button id="previous-week" class="secondary" type="button" aria-label="이전 주">‹</button>
+            <span id="week-range"></span>
+            <button id="next-week" class="secondary" type="button" aria-label="다음 주">›</button>
+          </div>
+        </div>
+        <div class="week-metrics" aria-live="polite">
+          <div><span>과의존 신호 비율</span><strong id="risk-rate">—</strong><small id="week-change">기록 대기</small></div>
+          <div><span>확인한 질문</span><strong id="week-total">0건</strong><small id="week-risk">과의존 신호 0건</small></div>
+          <div><span>스스로 확인하는 질문</span><strong id="week-good">0건</strong><small>힌트 · 내 풀이 검토 · 근거 확인</small></div>
+        </div>
+        <div class="week-chart-head"><h3>요일별 질문</h3><p><span class="legend-risk"></span> 과의존 신호 <span class="legend-other"></span> 그 외</p></div>
+        <ol class="week-chart" id="week-chart" aria-label="요일별 질문 막대그래프"></ol>
+        <p class="week-note">질문 확인을 누른 기록으로 계산해요. 같은 날 확인한 동일한 문장은 한 번만 집계해요.</p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="wrap foot">
+    <strong>AIRS (AI Reliance Regulation System)</strong>
+    <span>브라우저 시연 · 다른 앱 화면 감지는 Windows 버전에서 시작할 수 있어요.</span>
+  </footer>
+
+  <div id="walker" class="walker" aria-hidden="true" hidden>
+    <div class="pet" id="walking-pet" data-outfit=""><canvas width="120" height="120"></canvas><span class="outfit"></span><span class="heart">♥</span></div>
+  </div>
+</body>
+</html>

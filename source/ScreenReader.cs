@@ -1,0 +1,152 @@
+using System;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Threading.Tasks;
+using AsyncStatus = Windows.Foundation.AsyncStatus;
+using Windows.Graphics.Imaging;
+using Windows.Media.Ocr;
+using Windows.Storage.Streams;
+
+internal static class ScreenReader
+{
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect
+    {
+        public int Left, Top, Right, Bottom;
+    }
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr window, out int process);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetDesktopWindow();
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetShellWindow();
+
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr window, out NativeRect bounds);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out NativeRect value, int size);
+
+    public static bool TryGetBounds(IntPtr window, int ownProcessId, out Rectangle bounds)
+    {
+        bounds = Rectangle.Empty;
+        if (window == IntPtr.Zero || window == GetDesktopWindow() || window == GetShellWindow()) return false;
+        int process;
+        GetWindowThreadProcessId(window, out process);
+        if (process == ownProcessId) return false;
+
+        const int ExtendedFrameBounds = 9;
+        NativeRect rect;
+        if (DwmGetWindowAttribute(window, ExtendedFrameBounds, out rect, Marshal.SizeOf(typeof(NativeRect))) != 0
+            && !GetWindowRect(window, out rect)) return false;
+
+        bounds = Rectangle.Intersect(
+            Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom),
+            System.Windows.Forms.Screen.FromHandle(window).Bounds);
+        return bounds.Width >= 100 && bounds.Height >= 70;
+    }
+
+    public static OcrEngine KoreanEngine()
+    {
+        var language = OcrEngine.AvailableRecognizerLanguages.FirstOrDefault(
+            item => item.LanguageTag.StartsWith("ko", StringComparison.OrdinalIgnoreCase));
+        return language == null ? null : OcrEngine.TryCreateFromLanguage(language);
+    }
+
+    public static Bitmap Capture(Rectangle bounds)
+    {
+        var image = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppRgb);
+        try
+        {
+            using (var graphics = Graphics.FromImage(image))
+                graphics.CopyFromScreen(bounds.Location, Point.Empty, bounds.Size);
+            return image;
+        }
+        catch
+        {
+            image.Dispose();
+            throw;
+        }
+    }
+
+    public static async Task<ScreenText> Read(OcrEngine engine, Bitmap image)
+    {
+        // Keep normal-sized text at its original resolution and cap larger captures to the OCR API's limit.
+        double scale = Math.Min(1.0, (double)OcrEngine.MaxImageDimension / Math.Max(image.Width, image.Height));
+        int width = Math.Max(1, (int)(image.Width * scale));
+        int height = Math.Max(1, (int)(image.Height * scale));
+        using (var scaled = new Bitmap(width, height, PixelFormat.Format32bppRgb))
+        using (var bitmap = new SoftwareBitmap(BitmapPixelFormat.Bgra8, width, height, BitmapAlphaMode.Ignore))
+        {
+            using (var graphics = Graphics.FromImage(scaled))
+            {
+                graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                graphics.DrawImage(image, 0, 0, width, height);
+            }
+
+            var data = scaled.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.ReadOnly, PixelFormat.Format32bppRgb);
+            try
+            {
+                byte[] pixels = new byte[width * 4 * height];
+                Marshal.Copy(data.Scan0, pixels, 0, pixels.Length);
+                using (var writer = new DataWriter())
+                {
+                    writer.WriteBytes(pixels);
+                    bitmap.CopyFromBuffer(writer.DetachBuffer());
+                }
+            }
+            finally
+            {
+                scaled.UnlockBits(data);
+            }
+
+            var operation = engine.RecognizeAsync(bitmap);
+            try
+            {
+                while (operation.Status == AsyncStatus.Started) await Task.Delay(20).ConfigureAwait(false);
+                var result = operation.GetResults();
+                return new ScreenText(result.Lines.Select(line => new ScreenLine
+                {
+                    Text = line.Text,
+                    Area = line.Words.Select(word => Rectangle.FromLTRB(
+                        (int)(word.BoundingRect.Left / scale), (int)(word.BoundingRect.Top / scale),
+                        (int)Math.Ceiling(word.BoundingRect.Right / scale),
+                        (int)Math.Ceiling(word.BoundingRect.Bottom / scale))).Aggregate(Rectangle.Empty,
+                            (area, word) => area.IsEmpty ? word : Rectangle.Union(area, word))
+                }));
+            }
+            finally
+            {
+                operation.Close();
+            }
+        }
+    }
+}
+
+internal sealed class ScreenLine
+{
+    public string Text;
+    public Rectangle Area;
+}
+
+internal sealed class ScreenText
+{
+    public readonly ScreenLine[] Lines;
+    public readonly string Text;
+
+    public ScreenText(IEnumerable<ScreenLine> lines)
+    {
+        Lines = lines.ToArray();
+        Text = string.Join("\n", Lines.Select(line => line.Text));
+    }
+}

@@ -1,0 +1,6 @@
+*.exe
+*.zip
+accounts.json
+profiles/
+hamster.json
+*.tmp
