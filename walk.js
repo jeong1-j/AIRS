@@ -23,6 +23,7 @@
   let pause, restElapsed, behavior, speed = 0, travel = 0, facing = 1, pace = 48;
   let previous = 0, frame = 0, pose = 4, drawn = -1, arrivals = 0;
   let drag = null, fall = 0, feedTime = 0, food = "";
+  let petUntil = 0, landing = 0;
   let mealFrame = 0;
 
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -79,21 +80,30 @@
     targetX = clamp(targetX, 10, right);
     targetY = clamp(targetY, 10, top);
 
-    if (drag) pose = 15 + (reducedMotion.matches ? 0 : Math.floor(now / 230) % 2);
-    else if (fall) {
+    if (drag?.lifted) pose = 15 + (reducedMotion.matches ? 0 : Math.floor(now / 230) % 2);
+    if (drag) {
+      renderPosition(now);
+      return;
+    }
+    if (fall) {
       fall += 950 * dt;
       y = reducedMotion.matches ? 10 : Math.max(10, y - fall * dt);
       pose = 17;
       if (y <= 10) {
         fall = 0;
         targetX = x; targetY = y;
-        beginRest(1);
-        pose = 17;
+        landing = .26;
       }
+    } else if (landing > 0) {
+      landing = Math.max(0, landing - dt);
+      pose = 17;
+      if (!landing) beginRest(1);
     } else if (feedTime > 0) {
       feedTime = Math.max(0, feedTime - dt);
       pose = reducedMotion.matches ? 13 : 12 + Math.floor((2.6 - feedTime) / .24) % 3;
       if (!feedTime) { targetX = x; targetY = y; beginRest(1); }
+    } else if (petUntil > now) {
+      pose = reducedMotion.matches || petUntil - now < 700 ? 9 : 7;
     } else if (!reducedMotion.matches) {
       const dx = targetX - x, dy = targetY - y;
       const distance = Math.hypot(dx, dy);
@@ -128,10 +138,15 @@
       }
     } else pose = 4;
 
+    renderPosition(now);
+  }
+
+  function renderPosition(now) {
     walker.style.transform = "translate3d(" + x + "px," + -y + "px,0)";
     walker.style.setProperty("--facing", facing);
+    pet.classList.toggle("petted", now < petUntil);
     paint();
-    if (!reducedMotion.matches || drag || fall || feedTime) frame = requestAnimationFrame(animate);
+    if (!reducedMotion.matches || drag || fall || landing || feedTime || now < petUntil) frame = requestAnimationFrame(animate);
   }
 
   function refresh() {
@@ -141,29 +156,50 @@
     if (!walker.hidden && !document.hidden) frame = requestAnimationFrame(animate);
   }
 
-  new MutationObserver(refresh).observe(walker, { attributes: true, attributeFilter: ["hidden"] });
+  new MutationObserver(() => {
+    if (walker.hidden) {
+      if (drag && pet.hasPointerCapture(drag.id)) pet.releasePointerCapture(drag.id);
+      drag = null;
+      pet.classList.remove("dragging", "petted");
+      fall = landing = feedTime = petUntil = 0;
+      beginRest(1);
+    }
+    refresh();
+  }).observe(walker, { attributes: true, attributeFilter: ["hidden"] });
   document.addEventListener("visibilitychange", refresh);
   reducedMotion.addEventListener("change", refresh);
   addEventListener("resize", () => { if (reducedMotion.matches) refresh(); });
   pet.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
     const rect = walker.getBoundingClientRect();
-    drag = { id: event.pointerId, x: event.clientX - rect.left, bottom: rect.bottom - event.clientY };
-    fall = 0;
+    drag = { id: event.pointerId, x: event.clientX - rect.left, bottom: rect.bottom - event.clientY,
+      startX: event.clientX, startY: event.clientY, lifted: false };
     pet.setPointerCapture(event.pointerId);
-    pet.classList.add("dragging");
     refresh();
   });
   pet.addEventListener("pointermove", (event) => {
     if (drag?.id !== event.pointerId) return;
+    if (!drag.lifted) {
+      if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 5) return;
+      drag.lifted = true;
+      fall = landing = petUntil = 0;
+      pet.classList.add("dragging");
+    }
     x = event.clientX - drag.x;
     y = innerHeight - event.clientY - drag.bottom;
   });
   function release(event) {
     if (drag?.id !== event.pointerId) return;
+    const lifted = drag.lifted;
     drag = null;
     pet.classList.remove("dragging");
-    fall = 30;
+    if (lifted) fall = 24;
+    else if (event.type === "pointerup" && !fall && !feedTime) {
+      targetX = x;
+      targetY = y;
+      beginRest(1);
+      petUntil = performance.now() + 1150;
+    }
     refresh();
   }
   for (const event of ["pointerup", "pointercancel", "lostpointercapture"]) pet.addEventListener(event, release);
