@@ -10,6 +10,7 @@ internal sealed class HamsterRoom : Form
     private readonly Label reaction;
     private readonly Button[] shopButtons = new Button[HamsterProgress.Shop.Length];
     private readonly Timer celebration = new Timer { Interval = 2600 };
+    private readonly Timer nibble = new Timer { Interval = 235 };
     private Bubble coach;
     private readonly TextBox question;
 
@@ -32,7 +33,7 @@ internal sealed class HamsterRoom : Form
         Controls.Add(wallet);
         art = new HamsterArt { Bounds = new Rectangle(53, 118, 126, 169) };
         Controls.Add(art);
-        mood = Palette.Label("", 24, 338, 195, 24, 10, true, Palette.Green);
+        mood = Palette.Label("", 24, 326, 205, 36, 9, true, Palette.Green);
         Controls.Add(mood);
         var play = Palette.Button("놀아주기", 24, 363, 184, 30, false);
         play.Click += delegate
@@ -53,15 +54,20 @@ internal sealed class HamsterRoom : Form
             ShopItem item = HamsterProgress.Shop[i];
             int y = 4 + 63 * i;
             shop.Controls.Add(Palette.Label(item.Name, 5, y, 171, 23, 11, true, Palette.Ink));
-            shop.Controls.Add(Palette.Label(item.Bond > 0 ? "친밀도 +" + item.Bond : "구매 후 다시 입을 수 있어요", 5, y + 24, 165, 23, 9, false, Palette.Muted));
+            shop.Controls.Add(Palette.Label(item.Bond > 0 ? "호감도 +" + item.Bond : "구매 후 다시 입을 수 있어요", 5, y + 24, 165, 23, 9, false, Palette.Muted));
             var button = Palette.Button("", 172, y + 5, 116, 33, false);
             button.Click += delegate
             {
+                int previousLevel = progress.Bond / HamsterProgress.BondPerLevel;
                 if (!progress.GetItem(item)) return;
                 if (item.Bond > 0)
                 {
                     art.ActionFrame = 12;
-                    Celebrate("냠냠! Airi에게 " + item.Name + "을(를) 줬어요.");
+                    art.ActionFood = item;
+                    nibble.Start();
+                    int newLevel = progress.Bond / HamsterProgress.BondPerLevel;
+                    Celebrate(newLevel > previousLevel ? "호감도 Lv. " + (newLevel + 1) + " 달성!"
+                        : "냠냠! " + item.Name + " · 호감도 +" + item.Bond);
                 }
                 else Celebrate(progress.Outfit == item.Id ? item.Name + " 착용!" : "옷을 벗었어요.");
             };
@@ -81,7 +87,21 @@ internal sealed class HamsterRoom : Form
         Controls.Add(check);
         feedback = Palette.Label("힌트, 내 풀이 검토, 근거 확인을 요청하면 해바라기씨 " + HamsterProgress.Reward + "알을 받아요.", 24, 510, 363, 67, 9.5f, false, Palette.Muted);
         Controls.Add(feedback);
-        celebration.Tick += delegate { celebration.Stop(); art.Alert = false; art.ActionFrame = -1; reaction.Text = ""; RefreshState(); };
+        nibble.Tick += delegate
+        {
+            art.ActionFrame = 12 + (art.ActionFrame - 11) % 3;
+            art.Invalidate();
+        };
+        celebration.Tick += delegate
+        {
+            celebration.Stop();
+            nibble.Stop();
+            art.Alert = false;
+            art.ActionFrame = -1;
+            art.ActionFood = null;
+            reaction.Text = "";
+            RefreshState();
+        };
         progress.Changed += OnProgress;
         RefreshState();
     }
@@ -135,7 +155,9 @@ internal sealed class HamsterRoom : Form
     private void RefreshState()
     {
         wallet.Text = progress.Unlimited ? "해바라기씨 무제한" : "해바라기씨 " + progress.Points.ToString("N0") + "알";
-        mood.Text = "친밀도 " + progress.Bond + "  ·  " + (progress.Bond >= 6 ? "단짝" : progress.Bond >= 3 ? "친해지는 중" : "첫 만남");
+        int level = progress.Bond / HamsterProgress.BondPerLevel + 1;
+        int remaining = HamsterProgress.BondPerLevel - progress.Bond % HamsterProgress.BondPerLevel;
+        mood.Text = "호감도 Lv. " + level + "  ·  누적 " + progress.Bond + "\n다음 레벨까지 " + remaining;
         art.Outfit = progress.Outfit;
         art.Happy = celebration.Enabled || progress.Bond >= 3;
         art.Invalidate();
@@ -154,6 +176,7 @@ internal sealed class HamsterRoom : Form
         {
             progress.Changed -= OnProgress;
             celebration.Dispose();
+            nibble.Dispose();
             if (coach != null) coach.Dispose();
         }
         base.Dispose(disposing);

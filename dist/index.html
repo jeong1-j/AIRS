@@ -7,11 +7,11 @@
   <title>AIRS (AI Reliance Regulation System)</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="hamster-masks.css">
-  <script src="rules.js" defer></script>
-  <script src="app.js" defer></script>
-  <script src="airi-poses.js" defer></script>
-  <script src="walk.js" defer></script>
-  <script src="stats.js" defer></script>
+  <script src="rules.js?v=1.1.0" defer></script>
+  <script src="app.js?v=1.1.0" defer></script>
+  <script src="airi-poses.js?v=1.1.0" defer></script>
+  <script src="walk.js?v=1.1.0" defer></script>
+  <script src="stats.js?v=1.1.0" defer></script>
 </head>
 <body>
   <header class="top">
@@ -73,7 +73,7 @@
       <section class="card habitat" id="hamster" data-panel="hamster" aria-labelledby="home-title" hidden>
         <div class="card-head">
           <div><p class="eyebrow">쉬어가는 시간</p><h2 id="home-title">햄스터 집</h2></div>
-          <span class="bond" id="bond">♡ 친밀도 0</span>
+          <span class="bond" id="bond">♡ 호감도 Lv. 1</span>
         </div>
         <div class="terrarium" id="terrarium">
           <span class="room-window" aria-hidden="true"></span><span class="room-plant" aria-hidden="true">❋</span>
@@ -83,13 +83,13 @@
             <span class="outfit" aria-hidden="true"></span><span class="heart" aria-hidden="true">♥</span>
           </div>
           <span id="mood" class="mood">첫 만남</span>
-          <span id="food-reaction" class="food-reaction" aria-hidden="true" hidden></span>
         </div>
         <div class="habitat-foot">
           <button id="roam" class="secondary" type="button" aria-pressed="false">산책시키기</button>
           <button id="pet-play" class="secondary" type="button">놀아주기</button>
         </div>
-        <p id="pet-feedback" class="pet-feedback" role="status">간식을 먹으면 친밀도가 올라가요.</p>
+        <div class="bond-progress"><label for="bond-meter" id="bond-next">다음 레벨까지 5</label><progress id="bond-meter" value="0" max="5"></progress></div>
+        <p id="pet-feedback" class="pet-feedback" role="status">간식을 먹으면 호감도가 올라가요.</p>
       </section>
 
       <section class="card shop" data-panel="hamster" aria-labelledby="shop-title" hidden>
@@ -147,7 +147,7 @@
   </footer>
 
   <div id="walker" class="walker" aria-hidden="true" hidden>
-    <div class="pet" id="walking-pet" data-outfit="" title="Airi를 누른 채 옮겨 보세요"><canvas width="120" height="120"></canvas><span class="outfit"></span><span class="heart">♥</span><span class="walking-snack" hidden></span></div>
+    <div class="pet" id="walking-pet" data-outfit="" title="Airi를 누른 채 옮겨 보세요"><canvas width="120" height="120"></canvas><span class="outfit"></span><span class="heart">♥</span></div>
   </div>
 </body>
 </html>

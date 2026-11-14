@@ -1,17 +1,29 @@
 (() => {
   const walker = document.querySelector("#walker");
   const pet = walker.querySelector(".pet");
+  const home = document.querySelector("#pet");
+  const homeImage = home.querySelector("img");
+  const meal = document.createElement("canvas");
+  meal.width = meal.height = 120;
+  meal.className = "home-meal";
+  meal.setAttribute("aria-hidden", "true");
+  meal.hidden = true;
+  home.prepend(meal);
+  const mealContext = meal.getContext("2d");
   const canvas = pet.querySelector("canvas");
   const context = canvas.getContext("2d");
   const { frames, rests, restFrameSeconds } = window.airiPoses;
   const atlas = new Image();
   const interactions = new Image();
-  const snack = pet.querySelector(".walking-snack");
+  const treats = new Image();
+  const foods = ["seed", "berry", "apple", "carrot"];
+  const paws = [[.625, .543], [.715, .458], [.61, .556]];
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
   let x = 22, y = 10, targetX = x, targetY = y;
   let pause, restElapsed, behavior, speed = 0, travel = 0, facing = 1, pace = 48;
   let previous = 0, frame = 0, pose = 4, drawn = -1, arrivals = 0;
-  let drag = null, fall = 0, feedTime = 0;
+  let drag = null, fall = 0, feedTime = 0, food = "";
+  let mealFrame = 0;
 
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -25,13 +37,7 @@
   function paint() {
     const image = pose < 12 ? atlas : interactions;
     if (!image.naturalWidth || drawn === pose) return;
-    const [sx, sy, sw, sh] = frames[pose];
-    const scale = Math.min(canvas.width / 330, canvas.height / 370) * (pose < 12 ? 1 : .78);
-    const w = sw * scale, h = sh * scale;
-    const left = (canvas.width - w) / 2, top = canvas.height * .91 - h;
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.imageSmoothingQuality = "high";
-    context.drawImage(image, sx, sy, sw, sh, left, top, w, h);
+    const {left, top, w, h} = draw(context, pose, pose >= 12 && pose <= 14 ? food : "");
     const upright = pose >= 7 && pose !== 11 && pose !== 17;
     pet.dataset.pose = pose;
     pet.toggleAttribute("data-upright", upright);
@@ -41,6 +47,24 @@
     pet.style.setProperty("--crown-x", percent(left + w * .56));
     pet.style.setProperty("--crown-y", percent(top - h * .08));
     drawn = pose;
+  }
+
+  function draw(target, sprite, snackId) {
+    const [sx, sy, sw, sh] = frames[sprite];
+    const {width, height} = target.canvas;
+    const scale = Math.min(width / 330, height / 370) * (sprite < 12 ? 1 : .78);
+    const w = sw * scale, h = sh * scale;
+    const left = (width - w) / 2, top = height * .91 - h;
+    target.clearRect(0, 0, width, height);
+    target.imageSmoothingQuality = "high";
+    target.drawImage(sprite < 12 ? atlas : interactions, sx, sy, sw, sh, left, top, w, h);
+    const treat = foods.indexOf(snackId);
+    if (treat >= 0 && treats.naturalWidth) {
+      const [pawX, pawY] = paws[sprite - 12];
+      const size = w * .245 * (sprite === 14 ? .76 : 1);
+      target.drawImage(treats, treat * 64, 0, 64, 64, left + w * pawX - size / 2, top + h * pawY - size / 2, size, size);
+    }
+    return {left, top, w, h};
   }
 
   function animate(now) {
@@ -106,7 +130,6 @@
 
     walker.style.transform = "translate3d(" + x + "px," + -y + "px,0)";
     walker.style.setProperty("--facing", facing);
-    snack.hidden = feedTime <= 0 || Boolean(drag || fall);
     paint();
     if (!reducedMotion.matches || drag || fall || feedTime) frame = requestAnimationFrame(animate);
   }
@@ -145,8 +168,26 @@
   }
   for (const event of ["pointerup", "pointercancel", "lostpointercapture"]) pet.addEventListener(event, release);
   document.addEventListener("airi-feed", ({ detail }) => {
+    cancelAnimationFrame(mealFrame);
+    const start = performance.now();
+    function homeMeal(now) {
+      const elapsed = now - start;
+      if (elapsed >= 2600) {
+        meal.hidden = true;
+        homeImage.hidden = false;
+        return;
+      }
+      if (interactions.naturalWidth && treats.naturalWidth) {
+        meal.hidden = false;
+        homeImage.hidden = true;
+        draw(mealContext, reducedMotion.matches ? 13 : 12 + Math.floor(elapsed / 240) % 3, detail);
+      }
+      mealFrame = requestAnimationFrame(homeMeal);
+    }
+    mealFrame = requestAnimationFrame(homeMeal);
     if (walker.hidden) return;
-    snack.textContent = detail;
+    food = detail;
+    drawn = -1;
     feedTime = 2.6;
     refresh();
   });
@@ -155,5 +196,7 @@
   interactions.addEventListener("load", paint);
   atlas.src = "assets/airi-poses.png";
   interactions.src = "assets/airi-interactions.png";
+  treats.addEventListener("load", () => { drawn = -1; paint(); });
+  treats.src = "assets/airi-treats.png";
   refresh();
 })();

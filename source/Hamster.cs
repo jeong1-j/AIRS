@@ -29,6 +29,7 @@ internal sealed class ShopItem
 internal sealed class HamsterProgress
 {
     public const int Reward = 10;
+    public const int BondPerLevel = 5;
     public static readonly ShopItem[] Shop = {
         new ShopItem("seed", "씨앗 간식", "snack", 10, 1),
         new ShopItem("berry", "딸기 간식", "snack", 25, 3),
@@ -185,6 +186,7 @@ internal sealed class HamsterArt : Control
     public bool Alert;
     public bool Happy;
     public int ActionFrame = -1;
+    public ShopItem ActionFood;
 
     public HamsterArt()
     {
@@ -221,7 +223,7 @@ internal sealed class HamsterArt : Control
     {
         if (ActionFrame >= 0)
         {
-            AiriPoses.Draw(g, size, ActionFrame, false, Outfit, Happy);
+            AiriPoses.Draw(g, size, ActionFrame, false, Outfit, Happy, ActionFood);
             return;
         }
         var image = Alert ? Peek : Idle;

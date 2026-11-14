@@ -14,7 +14,7 @@ $runtime = 'System.Runtime', 'System.Runtime.WindowsRuntime', 'System.Runtime.In
 Push-Location -LiteralPath $project
 try {
     $files = Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.cs' | ForEach-Object FullName
-    $art = 'hamster.png', 'hamster-peek.png', 'hamster-mask.png', 'hamster-peek-mask.png', 'airi-poses.png', 'airi-interactions.png' | ForEach-Object {
+    $art = 'hamster.png', 'hamster-peek.png', 'hamster-mask.png', 'hamster-peek-mask.png', 'airi-poses.png', 'airi-interactions.png', 'airi-treats.png' | ForEach-Object {
         '/resource:' + (Join-Path $project ('dist/assets/' + $_)) + ',' + $_
     }
     & $csc /nologo /utf8output /codepage:65001 /target:winexe /platform:anycpu /optimize+ /reference:System.Runtime.Serialization.dll /out:AIRS.exe $metadata $runtime $art $files
@@ -46,6 +46,7 @@ try {
         topics = $detector.GetField('Topics').GetValue($null)
         feedback = $detector.GetField('Feedback').GetValue($null)
         reward = $hamster.GetField('Reward').GetRawConstantValue()
+        bondPerLevel = $hamster.GetField('BondPerLevel').GetRawConstantValue()
         shop = @($hamster.GetField('Shop').GetValue($null) | ForEach-Object {
             @{ id = $_.Id; name = $_.Name; kind = $_.Kind; cost = $_.Cost; bond = $_.Bond }
         })

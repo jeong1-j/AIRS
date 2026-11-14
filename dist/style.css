@@ -96,8 +96,7 @@ textarea::placeholder { color: #786858; }
 .pet.happy .heart { display: block; }
 .pet.celebrate { animation: hop .48s ease-in-out 3; }
 .pet.peeking .outfit { display: none; }
-.food-reaction { position: absolute; left: calc(50% + 31px); top: 45%; font-size: 22px; animation: snack .85s ease-in-out 2; }
-@keyframes snack { 60% { transform: translate(-12px,5px) rotate(-14deg); opacity: .5; } }
+.home-meal { position: absolute; inset: 0; width: 100%; height: 100%; }
 .outfit { display: none; position: absolute; }
 [data-outfit="scarf"] .outfit { display: block; left: 40%; top: 59%; width: 36%; height: 8%; background: #487b56; border: 1px solid #2f583c; border-radius: 25% 35% 40% 60%; transform: rotate(-9deg); }
 [data-outfit="scarf"] .outfit::after { content: ""; position: absolute; right: 14%; top: 66%; width: 25%; height: 145%; border-radius: 0 0 3px 3px; background: #487b56; }
@@ -121,7 +120,8 @@ textarea::placeholder { color: #786858; }
 .walker .pet { width: 46px; aspect-ratio: 1; transform: scaleX(var(--facing, 1)); }
 .walker .pet { pointer-events: auto; cursor: grab; touch-action: none; user-select: none; }
 .walker .pet.dragging { cursor: grabbing; }
-.walker .walking-snack { position: absolute; left: 78%; top: 51%; font-size: 10px; }
+.bond-progress { display: grid; gap: 4px; margin: 10px 0; font-size: 11px; color: var(--muted); }
+.bond-progress progress { width: 100%; height: 8px; accent-color: var(--green); }
 .walker canvas { display: block; width: 100%; height: 100%; }
 .walker [data-outfit="scarf"] .outfit { left: var(--scarf-x, 55%); top: var(--scarf-y, 62%); width: 23%; height: 5%; }
 .walker [data-outfit="crown"] .outfit { left: var(--crown-x, 55%); top: var(--crown-y, 29%); width: 21%; height: 12%; }

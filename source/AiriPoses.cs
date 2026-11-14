@@ -35,6 +35,8 @@ internal static class AiriPoses
     public const double RestFrameSeconds = .27;
     private static readonly Image Atlas = Load("airi-poses.png");
     private static readonly Image Interactions = Load("airi-interactions.png");
+    private static readonly Image Treats = Load("airi-treats.png");
+    private static readonly PointF[] Paws = { new PointF(.625f, .543f), new PointF(.715f, .458f), new PointF(.61f, .556f) };
 
     private static Image Load(string name)
     {
@@ -68,6 +70,14 @@ internal static class AiriPoses
             graphics.ScaleTransform(-1, 1);
         }
         graphics.DrawImage(frame < 12 ? Atlas : Interactions, body, source, GraphicsUnit.Pixel);
+        if (food != null && frame >= 12 && frame <= 14)
+        {
+            int treat = food.Id == "seed" ? 0 : food.Id == "berry" ? 1 : food.Id == "apple" ? 2 : 3;
+            var paw = Paws[frame - 12];
+            float side = w * .245f * (frame == 14 ? .76f : 1);
+            var held = new RectangleF(body.Left + w * paw.X - side / 2, body.Top + h * paw.Y - side / 2, side, side);
+            graphics.DrawImage(Treats, held, new Rectangle(treat * 64, 0, 64, 64), GraphicsUnit.Pixel);
+        }
         if (frame != 11)
         {
             bool upright = frame >= 7 && frame != 17;
@@ -86,18 +96,6 @@ internal static class AiriPoses
                 HamsterArt.DrawRibbon(graphics, body.Left + w * .43f, body.Top + h * .16f, w * .23f);
         }
         graphics.Restore(state);
-        if (food != null && frame >= 12 && frame <= 14)
-        {
-            Color color = food.Id == "carrot" ? Color.FromArgb(230, 132, 63)
-                : food.Id == "seed" ? Color.FromArgb(155, 105, 59) : Color.FromArgb(200, 76, 86);
-            using (var fruit = new SolidBrush(color))
-            using (var leaf = new SolidBrush(Color.FromArgb(88, 129, 89)))
-            {
-                float x = body.Left + w * (left ? .12f : .80f), y = body.Top + h * .48f;
-                graphics.FillEllipse(fruit, x, y, w * .16f, w * .18f);
-                graphics.FillEllipse(leaf, x + w * .05f, y - w * .033f, w * .12f, w * .048f);
-            }
-        }
         if (happy && frame >= 7 && frame <= 10)
             HamsterArt.DrawBadge(graphics, "♥", body.Right - 5, body.Top - 3, 10, Color.FromArgb(181, 65, 97));
     }
