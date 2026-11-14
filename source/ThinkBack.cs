@@ -15,6 +15,7 @@ internal static class Program
 {
     public const string Name = "AIRS";
     public const string FullName = "AIRS (AI Reliance Regulation System)";
+    internal static readonly Icon AppIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
 
     [DllImport("user32.dll")]
     private static extern bool SetProcessDpiAwarenessContext(IntPtr context);
@@ -75,7 +76,7 @@ internal sealed class ControlWindow : Form
     public ControlWindow()
     {
         Text = Program.FullName;
-        Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+        Icon = Program.AppIcon;
         Font = Palette.Font(10f);
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
@@ -87,8 +88,11 @@ internal sealed class ControlWindow : Form
         StartPosition = FormStartPosition.CenterScreen;
         Palette.RoundWindow(this);
 
-        var mascot = new HamsterArt { Bounds = new Rectangle(343, 40, 100, 119) };
-        Controls.Add(mascot);
+        var backdrop = new Panel { Bounds = new Rectangle(336, 52, 119, 119), BackColor = Palette.PaleGreen };
+        Palette.ClipCorners(backdrop, 59);
+        var mascot = new HamsterArt { Bounds = new Rectangle(12, 5, 100, 106), BackColor = Palette.PaleGreen };
+        backdrop.Controls.Add(mascot);
+        Controls.Add(backdrop);
         Controls.Add(Palette.Label(Program.FullName, 30, 27, 305, 26, 10f, true, Palette.Green));
         Controls.Add(Palette.Label("AI 질문 앞에서\n한 번 더 생각하기", 28, 64, 320, 92, 25f, true, Palette.Ink));
         Controls.Add(Palette.Label("지금 보고 있는 창에서 AI에게 답이나 과제를 맡기는 표현을 찾으면 캐릭터가 알려줘요.", 30, 171, 420, 57, 11f, false, Palette.Muted));
@@ -567,13 +571,13 @@ internal sealed class Bubble : Form
 
 internal static class Palette
 {
-    public static readonly Color Paper = Color.FromArgb(255, 251, 242);
+    public static readonly Color Paper = Color.FromArgb(252, 250, 243);
     public static readonly Color Ink = Color.FromArgb(57, 42, 32);
-    public static readonly Color Green = Color.FromArgb(38, 87, 64);
+    public static readonly Color Green = Color.FromArgb(35, 85, 68);
     public static readonly Color Muted = Color.FromArgb(71, 91, 80);
     public static readonly Color Lime = Color.FromArgb(218, 169, 92);
-    public static readonly Color PaleGreen = Color.FromArgb(235, 242, 221);
-    public static readonly Color Line = Color.FromArgb(232, 217, 201);
+    public static readonly Color PaleGreen = Color.FromArgb(230, 242, 232);
+    public static readonly Color Line = Color.FromArgb(218, 230, 218);
 
     public static Font Font(float size, bool bold = false)
     {
@@ -595,11 +599,11 @@ internal static class Palette
         {
             Text = text, Bounds = new Rectangle(x, y, width, height), Font = Font(10f, true),
             FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand,
-            BackColor = primary ? Green : Paper, ForeColor = primary ? Color.White : Green
+            BackColor = primary ? Green : PaleGreen, ForeColor = primary ? Color.White : Green
         };
         button.FlatAppearance.BorderColor = primary ? Green : Line;
-        button.FlatAppearance.MouseOverBackColor = primary ? Color.FromArgb(27, 69, 49) : PaleGreen;
-        ClipCorners(button, 13);
+        button.FlatAppearance.MouseOverBackColor = primary ? Color.FromArgb(43, 102, 81) : Color.FromArgb(215, 235, 220);
+        ClipCorners(button, 20);
         return button;
     }
 
@@ -608,6 +612,7 @@ internal static class Palette
 
     public static void RoundWindow(Form window)
     {
+        if (Program.AppIcon != null) window.Icon = Program.AppIcon;
         window.HandleCreated += delegate
         {
             int round = 2;

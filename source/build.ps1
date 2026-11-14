@@ -17,7 +17,8 @@ try {
     $art = 'hamster.png', 'hamster-peek.png', 'hamster-mask.png', 'hamster-peek-mask.png', 'airi-poses.png', 'airi-interactions.png', 'airi-treats.png' | ForEach-Object {
         '/resource:' + (Join-Path $project ('dist/assets/' + $_)) + ',' + $_
     }
-    & $csc /nologo /utf8output /codepage:65001 /target:winexe /platform:anycpu /optimize+ /reference:System.Runtime.Serialization.dll /out:AIRS.exe $metadata $runtime $art $files
+    $icon = Join-Path $project 'dist/assets/airs.ico'
+    & $csc /nologo /utf8output /codepage:65001 /target:winexe /platform:anycpu /optimize+ /reference:System.Runtime.Serialization.dll /out:AIRS.exe "/win32icon:$icon" $metadata $runtime $art $files
     if ($LASTEXITCODE -ne 0) { throw 'AIRS could not be built.' }
     $masks = 'hamster', 'hamster-peek' | ForEach-Object {
         $mask = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $project "dist/assets/$_-mask.png")))
