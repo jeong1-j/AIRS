@@ -94,18 +94,15 @@ function react(message, pose) {
   $("#pet-feedback").textContent = message;
   clearTimeout(moodTimer);
   const pet = pets[0];
-  const food = $("#food-reaction");
-  food.textContent = shopIcons[pose] || "";
-  food.hidden = !food.textContent;
   pet.classList.remove("celebrate");
   pet.getBoundingClientRect();
-  pet.classList.add("happy", "celebrate");
+  pet.classList.add("happy");
+  if (!shopIcons[pose]) pet.classList.add("celebrate");
   pet.classList.toggle("peeking", pose === "peek");
   pet.querySelector("img").src = pose === "peek" ? "assets/hamster-peek.png" : "assets/hamster.png";
   moodTimer = setTimeout(() => {
     pet.classList.remove("celebrate", "peeking");
     pet.querySelector("img").src = "assets/hamster.png";
-    food.hidden = true;
     render();
   }, 1800);
 }
@@ -158,7 +155,7 @@ const shop = rules.shop.map((item) => {
   const name = document.createElement("strong");
   name.textContent = item.name;
   const note = document.createElement("small");
-  note.textContent = item.bond ? "친밀도 +" + item.bond : "구매 후 다시 착용 가능";
+  note.textContent = item.bond ? "호감도 +" + item.bond : "구매 후 다시 착용 가능";
   detail.append(name, note);
   const button = document.createElement("button");
   button.type = "button";
@@ -170,6 +167,7 @@ const shop = rules.shop.map((item) => {
 });
 
 function useItem(item) {
+  const priorLevel = Math.floor(progress.bond / rules.bondPerLevel);
   if (progress.owned.includes(item.id)) {
     progress.outfit = progress.outfit === item.id ? "" : item.id;
   } else {
@@ -182,13 +180,22 @@ function useItem(item) {
     }
   }
   persist();
-  if (item.bond) react("냠냠! " + item.name + " · 친밀도 +" + item.bond, item.id);
+  if (item.bond) {
+    const level = Math.floor(progress.bond / rules.bondPerLevel);
+    react("냠냠! " + item.name + " · 호감도 +" + item.bond + (level > priorLevel ? " · Lv. " + (level + 1) + " 달성!" : ""), item.id);
+    document.dispatchEvent(new CustomEvent("airi-feed", { detail: item.id }));
+  }
   else react(progress.outfit ? item.name + " 착용!" : "옷을 벗었어요.", "happy");
 }
 
 function render() {
   $("#points").textContent = progress.points.toLocaleString("ko-KR") + "알";
-  $("#bond").textContent = "♡ 친밀도 " + progress.bond;
+  const level = Math.floor(progress.bond / rules.bondPerLevel) + 1;
+  const inLevel = progress.bond % rules.bondPerLevel;
+  $("#bond").textContent = "♡ 호감도 Lv. " + level;
+  $("#bond-meter").max = rules.bondPerLevel;
+  $("#bond-meter").value = inLevel;
+  $("#bond-next").textContent = "누적 " + progress.bond + " · 다음 레벨까지 " + (rules.bondPerLevel - inLevel);
   $("#mood").textContent = progress.bond >= 6 ? "단짝" : progress.bond >= 3 ? "친해지는 중" : "첫 만남";
   for (const pet of pets) {
     pet.dataset.outfit = progress.outfit;
