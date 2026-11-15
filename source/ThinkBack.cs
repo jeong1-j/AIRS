@@ -371,9 +371,9 @@ internal sealed class ControlWindow : Form
 
     private static Signal FindScreenSignal(string text)
     {
-        // Windows OCR sometimes reads the last syllable of "알려 줘" as "주의".
+        // Repair observed OCR substitutions at the end of a statement.
         return Detector.Find(System.Text.RegularExpressions.Regex.Replace(
-            text, @"알려\s*주의(?=\s*[.!?]?\s*$)", "알려 줘"));
+            text, @"알려\s*(?:주의(?=\s*[.!?]?\s*$)|주니(?=\s*[.!]\s*$))", "알려 줘"));
     }
 
     private void Restore()
