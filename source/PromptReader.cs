@@ -48,13 +48,16 @@ internal static class PromptReader
 
     private static ScreenLine ReadEditor(AutomationElement root, AutomationElement focused, Rectangle bounds, bool browser)
     {
-        if (browser && !IsChatGptPage(root, DocumentOf(focused))) return null;
-
         var composer = FindComposer(focused);
-        if (composer == null) return new ScreenLine { Text = "" };
+        bool trustedPage = !browser || IsChatGptPage(root, DocumentOf(focused));
+        if (composer == null)
+        {
+            var control = focused.Current;
+            if (control.IsPassword) return new ScreenLine { Text = "" };
+            return browser && trustedPage && control.ControlType != ControlType.Edit
+                ? new ScreenLine { Text = "" } : null;
+        }
 
-        string draft = DraftText(composer);
-        if (draft == null || draft.Length > MaximumLength) return null;
         var rect = composer.Current.BoundingRectangle;
         if (rect.IsEmpty) return null;
         var area = Rectangle.Intersect(bounds, Rectangle.FromLTRB(
@@ -62,7 +65,9 @@ internal static class PromptReader
             (int)Math.Ceiling(rect.Right), (int)Math.Ceiling(rect.Bottom)));
         if (area.IsEmpty || area.Width == 0 || area.Height == 0) return null;
         area.Offset(-bounds.Left, -bounds.Top);
-        return new ScreenLine { Text = draft.Trim(), Area = area };
+
+        string draft = trustedPage ? DraftText(composer) : null;
+        return new ScreenLine { Text = draft != null && draft.Length <= MaximumLength ? draft.Trim() : null, Area = area };
     }
 
     private static bool IsChatGptPackage(string path)
@@ -125,11 +130,25 @@ internal static class PromptReader
             var control = focused.Current;
             if (control.IsPassword || control.ControlType == ControlType.Window) break;
             bool textControl = control.ControlType == ControlType.Edit || control.ControlType == ControlType.Document;
-            if (IsComposer(control.AutomationId, control.Name, textControl))
+            if (IsComposer(control.AutomationId, control.Name, textControl)
+                || (textControl && IsDesktopComposer(focused, walker, control.ClassName)))
                 return focused;
             if (control.ControlType == ControlType.Document) break;
         }
         return null;
+    }
+
+    private static bool IsDesktopComposer(AutomationElement editor, TreeWalker walker, string className)
+    {
+        if (Array.IndexOf(className.Split(' '), "ProseMirror") < 0) return false;
+        for (int depth = 0; depth < 5; depth++)
+        {
+            editor = walker.GetParent(editor);
+            if (editor == null) break;
+            foreach (string token in editor.Current.ClassName.Split(' '))
+                if (token.StartsWith("ComposerLayoutBody-", StringComparison.Ordinal)) return true;
+        }
+        return false;
     }
 
     private static bool IsComposer(string id, string name, bool editable)

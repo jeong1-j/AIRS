@@ -280,16 +280,20 @@ internal sealed class ControlWindow : Form
         int scanSession = session;
         var scanEngine = engine;
         ScreenLine draft = null;
+        var editorArea = Rectangle.Empty;
         busy = true;
         try
         {
             var capture = await Task.Run(async delegate
             {
-                draft = PromptReader.Read(window, bounds);
+                var editor = PromptReader.Read(window, bounds);
+                draft = editor != null && editor.Text != null ? editor : null;
+                if (editor != null) editorArea = editor.Area;
                 if (draft != null || scanEngine == null) return null;
                 using (var image = ScreenReader.Capture(bounds))
                 {
-                    var result = await ScreenReader.Read(scanEngine, image);
+                    var result = editor == null ? await ScreenReader.Read(scanEngine, image)
+                        : await ScreenReader.ReadNearEditor(scanEngine, image, editor.Area);
                     if (overlay.IsEmpty) return result;
                     return new ScreenText(result.Lines.Where(line =>
                     {
@@ -301,6 +305,14 @@ internal sealed class ControlWindow : Form
             });
             if (scanSession != session || IsDisposed || window != ScreenReader.GetForegroundWindow()) return;
             poll.Interval = draft == null ? 400 : 150;
+            string mode = draft != null && !draft.Area.IsEmpty ? "채팅 입력칸 연결됨"
+                : scanEngine == null ? "채팅 입력칸 대기 중" : "화면 글자 감지 중";
+            string trayText = "AIRS · " + mode;
+            if (tray.Text != trayText)
+            {
+                tray.Text = trayText;
+                status.Text = "●  " + mode;
+            }
             if (draft == null)
             {
                 lastDraft = null;
@@ -309,14 +321,14 @@ internal sealed class ControlWindow : Form
             }
             else
             {
-                // Let one more sample catch continuations like “풀어 ... 말고 힌트만 줘”.
+                // Check a full phrase immediately; give a bare verb one more sample for a continuation.
                 if (draftWindow != window || lastDraft != draft.Text)
                 {
                     draftWindow = window;
                     lastDraft = draft.Text;
                     draftAnalyzed = false;
                     if (draft.Text.Length == 0 && bubble.Visible) DismissBubble();
-                    return;
+                    if (Detector.Compact(draft.Text).Length <= 2) return;
                 }
                 if (draftAnalyzed || draft.Text.Length == 0) return;
                 draftAnalyzed = true;
@@ -371,7 +383,7 @@ internal sealed class ControlWindow : Form
             coachingWindow = window;
             coachingBaseline = Detector.Compact(text);
             coachingUntil = now.AddMinutes(2);
-            var anchor = flagged.Area;
+            var anchor = editorArea.IsEmpty ? flagged.Area : editorArea;
             anchor.Offset(bounds.Location);
             bubbleWindow = window;
             bubble.Present(signal, Screen.FromHandle(window).WorkingArea, anchor);
@@ -451,6 +463,8 @@ internal sealed class ControlWindow : Form
             text, @"^\s*할리\s+풀어(?=\s*[.!?]?\s*$)", "빨리 풀어");
         text = System.Text.RegularExpressions.Regex.Replace(
             text, @"^\s*풀어\s*할리(?=\s*[.!?]?\s*$)", "풀어 빨리");
+        text = System.Text.RegularExpressions.Regex.Replace(
+            text, @"^\s*답\s*만\s*주4(?=\s*[.!?]?\s*$)", "답만 줘");
         return System.Text.RegularExpressions.Regex.Replace(
             text, @"알려\s*(?:주의(?=\s*(?:[.!?]|$))|주니(?=\s*[.!]))", "알려 줘");
     }

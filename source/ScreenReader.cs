@@ -104,6 +104,21 @@ internal static class ScreenReader
         }
     }
 
+    public static async Task<ScreenText> ReadNearEditor(OcrEngine engine, Bitmap image, Rectangle editor)
+    {
+        editor.Inflate(10, 8);
+        var region = Rectangle.Intersect(editor, new Rectangle(Point.Empty, image.Size));
+        if (region.Width == 0 || region.Height == 0) return await Read(engine, image).ConfigureAwait(false);
+        using (var field = image.Clone(region, PixelFormat.Format32bppRgb))
+        {
+            var draft = await ReadScaled(engine, field, 1.75).ConfigureAwait(false);
+            if (draft.Lines.Length == 0)
+                draft = await ReadScaled(engine, field, 1).ConfigureAwait(false);
+            foreach (var line in draft.Lines) line.Area.Offset(region.Location);
+            return draft;
+        }
+    }
+
     private static bool SameRow(Rectangle first, Rectangle second)
     {
         return first.Right > second.Left && second.Right > first.Left
