@@ -7,6 +7,7 @@ using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 [DataContract]
@@ -118,8 +119,8 @@ internal sealed class AccountWindow : Form
         AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
         Palette.RoundWindow(this);
-        Controls.Add(Palette.Label("AIRS 로그인", 23, 17, 388, 44, 21, true, Palette.Ink));
-        Controls.Add(Palette.Label("학생별 씨앗과 활동 기록을 이 PC에 저장해요.", 24, 67, 400, 24, 10, false, Palette.Muted));
+        Controls.Add(Palette.Label("AIRS 계정", 23, 17, 388, 44, 21, true, Palette.Ink));
+        Controls.Add(Palette.Label("가입한 계정으로 로그인하세요.", 24, 67, 400, 24, 10, false, Palette.Muted));
         Controls.Add(Palette.Label("아이디", 24, 102, 392, 20, 10, true, Palette.Ink));
         Controls.Add(Palette.Label("비밀번호", 24, 162, 392, 20, 10, true, Palette.Ink));
         var name = new TextBox { Bounds = new Rectangle(24, 126, 398, 27), Font = Palette.Font(11), MaxLength = 24, AccessibleName = "아이디" };
@@ -131,39 +132,61 @@ internal sealed class AccountWindow : Form
         Controls.Add(secret);
         Controls.Add(feedback);
 
-        Action<bool> submit = register =>
+        var signIn = Palette.Button("로그인", 24, 262, 193, 42, true);
+        var join = Palette.Button("회원가입", 229, 262, 193, 42, false);
+        bool pending = false;
+        FormClosing += delegate(object sender, FormClosingEventArgs args) { if (pending) args.Cancel = true; };
+        Action<bool> submit = async register =>
         {
+            if (pending) return;
+            string id = name.Text.Trim(), password = secret.Text;
+            if (id.Length == 0 || password.Length == 0)
+            {
+                feedback.Text = "아이디와 비밀번호를 입력해 주세요.";
+                (id.Length == 0 ? name : secret).Focus();
+                return;
+            }
+            bool adminName = string.Equals(id, LocalAccounts.AdminName, StringComparison.OrdinalIgnoreCase);
+            if (register && adminName && !accounts.HasAdmin && MessageBox.Show(this,
+                "이 PC의 관리자 계정을 만들까요? 관리자는 이 PC에 등록된 학생의 활동 집계를 볼 수 있어요.",
+                "관리자 계정 만들기", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+            pending = true;
+            signIn.Enabled = join.Enabled = name.Enabled = secret.Enabled = false;
+            feedback.Text = register ? "계정을 만드는 중이에요…" : "계정을 확인하는 중이에요…";
+            LocalAccount verified = null;
             try
             {
+                verified = await Task.Run(() => register ? accounts.Register(id, password) : accounts.SignIn(id, password));
                 if (register)
                 {
-                    bool adminName = string.Equals(name.Text.Trim(), LocalAccounts.AdminName, StringComparison.OrdinalIgnoreCase);
-                    if (adminName && !accounts.HasAdmin && MessageBox.Show(this,
-                        "이 PC의 관리자 계정을 만들까요? 관리자는 이 PC에 등록된 학생의 활동 집계를 볼 수 있어요.",
-                        "관리자 계정 만들기", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
-                    var created = accounts.Register(name.Text, secret.Text);
-                    name.Text = created.Name;
+                    name.Text = verified.Name;
                     secret.Clear();
-                    feedback.Text = "계정을 만들었어요. 비밀번호를 다시 입력하고 로그인해 주세요.";
-                    secret.Focus();
-                    return;
+                    feedback.Text = verified.Admin ? "관리자 계정을 만들었어요. 비밀번호를 다시 입력해 로그인하세요."
+                        : "학생 계정을 만들었어요. 비밀번호를 다시 입력해 로그인하세요.";
                 }
-                Account = accounts.SignIn(name.Text, secret.Text);
-                if (Account == null)
+                else if (verified == null)
                 {
                     feedback.Text = "아이디와 비밀번호를 확인해 주세요.";
-                    return;
+                    secret.SelectAll();
                 }
-                DialogResult = DialogResult.OK;
             }
             catch (ArgumentException error) { feedback.Text = error.Message; }
             catch (IOException) { feedback.Text = "계정을 저장할 수 없어요. 잠시 뒤 다시 시도해 주세요."; }
             catch (UnauthorizedAccessException) { feedback.Text = "계정을 저장할 수 없어요. 잠시 뒤 다시 시도해 주세요."; }
+            finally
+            {
+                pending = false;
+                signIn.Enabled = join.Enabled = name.Enabled = secret.Enabled = true;
+            }
+            if (!register && verified != null)
+            {
+                Account = verified;
+                DialogResult = DialogResult.OK;
+            }
+            else secret.Focus();
         };
-        var signIn = Palette.Button("로그인", 24, 262, 193, 42, true);
         signIn.Click += delegate { submit(false); };
         AcceptButton = signIn;
-        var join = Palette.Button("회원가입", 229, 262, 193, 42, false);
         join.Click += delegate { submit(true); };
         Controls.Add(signIn);
         Controls.Add(join);

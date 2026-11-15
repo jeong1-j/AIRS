@@ -85,16 +85,20 @@ internal static class ScreenReader
         double scale = Math.Min(1.0, (double)OcrEngine.MaxImageDimension / Math.Max(image.Width, image.Height));
         int width = Math.Max(1, (int)(image.Width * scale));
         int height = Math.Max(1, (int)(image.Height * scale));
-        using (var scaled = new Bitmap(width, height, PixelFormat.Format32bppRgb))
+        using (var scaled = scale < 1 ? new Bitmap(width, height, PixelFormat.Format32bppRgb) : null)
         using (var bitmap = new SoftwareBitmap(BitmapPixelFormat.Bgra8, width, height, BitmapAlphaMode.Ignore))
         {
-            using (var graphics = Graphics.FromImage(scaled))
+            if (scaled != null)
             {
-                graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                graphics.DrawImage(image, 0, 0, width, height);
+                using (var graphics = Graphics.FromImage(scaled))
+                {
+                    graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    graphics.DrawImage(image, 0, 0, width, height);
+                }
             }
 
-            var data = scaled.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.ReadOnly, PixelFormat.Format32bppRgb);
+            var source = scaled ?? image;
+            var data = source.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.ReadOnly, PixelFormat.Format32bppRgb);
             try
             {
                 byte[] pixels = new byte[width * 4 * height];
@@ -107,13 +111,13 @@ internal static class ScreenReader
             }
             finally
             {
-                scaled.UnlockBits(data);
+                source.UnlockBits(data);
             }
 
             var operation = engine.RecognizeAsync(bitmap);
             try
             {
-                while (operation.Status == AsyncStatus.Started) await Task.Delay(20).ConfigureAwait(false);
+                while (operation.Status == AsyncStatus.Started) await Task.Delay(10).ConfigureAwait(false);
                 var result = operation.GetResults();
                 return new ScreenText(result.Lines.Select(line => new ScreenLine
                 {

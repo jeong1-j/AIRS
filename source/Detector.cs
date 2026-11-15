@@ -143,4 +143,18 @@ internal static class Detector
     {
         return Regex.Replace(text.Normalize(NormalizationForm.FormKC), @"[\s\p{P}\p{Cf}]+", "").ToLowerInvariant();
     }
+
+    public static string Direction(Signal signal)
+    {
+        if (signal.Kind == "skip") return "핵심 주장 하나를 원자료와 대조해 보세요.";
+        var topic = Topics.FirstOrDefault(item => item[3] == signal.Suggestion);
+        switch (topic == null ? "" : topic[0])
+        {
+            case "science": return "가장 크게 변한 구간의 수치를 적어 보세요.";
+            case "code": return "예상과 다른 입력 하나부터 찾아보세요.";
+            case "math": return "문제의 조건 하나를 식으로 옮겨 보세요.";
+            case "writing": return "핵심 주장과 근거를 한 줄씩 적어 보세요.";
+            default: return signal.Kind == "answer" ? "풀이의 첫 줄부터 직접 써 보세요." : "직접 할 수 있는 첫 단계부터 시작해 보세요.";
+        }
+    }
 }

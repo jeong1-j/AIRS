@@ -120,7 +120,7 @@ internal sealed class HamsterRoom : Form
         progress.Record(text, signal != null, good);
         if (signal != null)
         {
-            feedback.Text = signal.Step;
+            feedback.Text = Detector.Direction(signal);
             if (coach != null) coach.Dispose();
             coach = new Bubble();
             Rectangle anchor = RectangleToScreen(question.Bounds);

@@ -1,5 +1,4 @@
 using System;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -46,8 +45,8 @@ internal sealed class ControlWindow : Form
 {
     private readonly NotifyIcon tray;
     private readonly ToolStripMenuItem monitorMenu;
-    private readonly System.Windows.Forms.Timer poll = new System.Windows.Forms.Timer { Interval = 1450 };
-    private readonly System.Windows.Forms.Timer hideBubble = new System.Windows.Forms.Timer { Interval = 25000 };
+    private readonly System.Windows.Forms.Timer poll = new System.Windows.Forms.Timer { Interval = 400 };
+    private readonly System.Windows.Forms.Timer hideBubble = new System.Windows.Forms.Timer { Interval = 4200 };
     private readonly Button toggle;
     private readonly Label status;
     private HamsterProgress progress = HamsterProgress.Load();
@@ -72,6 +71,7 @@ internal sealed class ControlWindow : Form
     private string coachingBaseline;
     private DateTime coachingUntil;
     private string lastRiskKey;
+    private IntPtr bubbleWindow;
 
     public ControlWindow()
     {
@@ -80,7 +80,7 @@ internal sealed class ControlWindow : Form
         Font = Palette.Font(10f);
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(482, 607);
+        ClientSize = new Size(482, 550);
         BackColor = Palette.Paper;
         ForeColor = Palette.Ink;
         FormBorderStyle = FormBorderStyle.FixedSingle;
@@ -110,20 +110,17 @@ internal sealed class ControlWindow : Form
         roam = Palette.Button("", 30, 364, 203, 40, false);
         roam.Click += delegate { progress.SetRoam(!progress.Roam); };
         Controls.Add(roam);
-        var demo = Palette.Button("브라우저 시연 ↗", 247, 364, 205, 40, false);
-        demo.Click += delegate { OpenDemo(); };
-        Controls.Add(demo);
-        var stats = Palette.Button("주간 통계", 30, 415, 422, 40, false);
+        var stats = Palette.Button("주간 통계", 247, 364, 205, 40, false);
         stats.Click += delegate { OpenStats(); };
         Controls.Add(stats);
-        accountButton = Palette.Button("로그인 · 이 PC 계정", 30, 466, 203, 40, false);
+        accountButton = Palette.Button("로그인 / 회원가입", 30, 425, 203, 40, false);
         accountButton.Click += delegate { OpenAccount(); };
         Controls.Add(accountButton);
-        adminButton = Palette.Button("관리자 · 학생 활동", 247, 466, 205, 40, false);
+        adminButton = Palette.Button("관리자 · 학생 활동", 247, 425, 205, 40, false);
         adminButton.Click += delegate { OpenAdmin(); };
         adminButton.Visible = false;
         Controls.Add(adminButton);
-        Controls.Add(Palette.Label("창을 닫아도 켜 둔 감지는 계속돼요. 작업 표시줄 오른쪽 아이콘에서 감지를 멈추거나 앱을 종료할 수 있어요. 화면은 이 PC에서만 읽어요.", 30, 521, 420, 62, 9f, false, Palette.Muted));
+        Controls.Add(Palette.Label("창을 닫아도 켜 둔 감지는 계속돼요. 작업 표시줄 오른쪽 아이콘에서 감지를 멈추거나 앱을 종료할 수 있어요. 화면은 이 PC에서만 읽어요.", 30, 482, 420, 56, 9f, false, Palette.Muted));
 
         var menu = new ContextMenuStrip();
         menu.Items.Add("AIRS 열기", null, delegate { Restore(); });
@@ -131,7 +128,7 @@ internal sealed class ControlWindow : Form
         menu.Items.Add(monitorMenu);
         menu.Items.Add("햄스터 집", null, delegate { OpenRoom(); });
         menu.Items.Add("주간 통계", null, delegate { OpenStats(); });
-        accountMenu = new ToolStripMenuItem("로그인 · 이 PC 계정", null, delegate { OpenAccount(); });
+        accountMenu = new ToolStripMenuItem("로그인 / 회원가입", null, delegate { OpenAccount(); });
         adminMenu = new ToolStripMenuItem("관리자 · 학생 활동", null, delegate { OpenAdmin(); }) { Visible = false };
         menu.Items.Add(accountMenu);
         menu.Items.Add(adminMenu);
@@ -184,7 +181,7 @@ internal sealed class ControlWindow : Form
         progress.Changed += OnProgressChanged;
         progress.Fed += walker.Feed;
         bool admin = account != null && account.Admin;
-        accountButton.Text = account == null ? "로그인 · 이 PC 계정" : "로그아웃 · " + (admin ? "관리자" : account.Name);
+        accountButton.Text = account == null ? "로그인 / 회원가입" : "로그아웃 · " + (admin ? "관리자" : account.Name);
         accountMenu.Text = accountButton.Text;
         adminButton.Visible = adminMenu.Visible = admin;
         RefreshHamster();
@@ -205,25 +202,6 @@ internal sealed class ControlWindow : Form
     }
 
     private void ShowAccountError() { MessageBox.Show(this, "이 PC의 계정 정보를 읽을 수 없어요.", Program.Name); }
-
-    private void OpenDemo()
-    {
-        string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "dist", "index.html");
-        if (!File.Exists(path))
-        {
-            MessageBox.Show("dist 폴더에 있는 index.html을 찾을 수 없어요.", Program.Name);
-            return;
-        }
-
-        try
-        {
-            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-        }
-        catch (Win32Exception)
-        {
-            MessageBox.Show("브라우저를 열 수 없어요. dist 폴더의 index.html을 직접 열어 주세요.", Program.Name);
-        }
-    }
 
     private void RefreshHamster()
     {
@@ -275,8 +253,9 @@ internal sealed class ControlWindow : Form
         tray.Text = enabled ? "AIRS · 감지 켜짐" : "AIRS · 감지 꺼짐";
         if (enabled)
         {
-            poll.Start();
             HideToTray();
+            poll.Start();
+            BeginScan();
         }
         else
         {
@@ -285,10 +264,14 @@ internal sealed class ControlWindow : Form
         }
     }
 
+    private async void BeginScan() { await Scan(); }
+
     private async Task Scan()
     {
-        if (!monitoring || busy || bubble.Visible) return;
+        if (!monitoring) return;
         IntPtr window = ScreenReader.GetForegroundWindow();
+        if (bubble.Visible && window != bubbleWindow) DismissBubble();
+        if (busy) return;
         Rectangle bounds;
         if (!ScreenReader.TryGetBounds(window, processId, out bounds)) return;
         int scanSession = session;
@@ -321,26 +304,28 @@ internal sealed class ControlWindow : Form
             {
                 coachingBaseline = null;
             }
-            var flagged = FindFlaggedLine(capture.Lines);
+            Signal signal;
+            var flagged = FindFlaggedLine(capture.Lines, out signal);
             if (flagged == null) return;
-            var signal = FindScreenSignal(flagged.Text);
 
-            string riskKey = Detector.Compact(flagged.Text);
+            string riskKey = Detector.Compact(signal.Evidence);
             bool repeated = window == lastWindow && riskKey == lastRiskKey && now - lastSeen < TimeSpan.FromSeconds(28);
             lastWindow = window;
             lastRiskKey = riskKey;
             lastSeen = now;
             if (repeated) return;
 
-            progress.Record(flagged.Text, true, false);
             coachingWindow = window;
             coachingBaseline = Detector.Compact(text);
             coachingUntil = now.AddMinutes(2);
             var anchor = flagged.Area;
             anchor.Offset(bounds.Location);
+            bubbleWindow = window;
             bubble.Present(signal, Screen.FromHandle(window).WorkingArea, anchor);
             RefreshHamster();
+            hideBubble.Stop();
             hideBubble.Start();
+            progress.Record(flagged.Text, true, false);
         }
         catch (Exception error)
         {
@@ -354,7 +339,7 @@ internal sealed class ControlWindow : Form
         }
     }
 
-    private static ScreenLine FindFlaggedLine(ScreenLine[] lines)
+    private static ScreenLine FindFlaggedLine(ScreenLine[] lines, out Signal signal)
     {
         for (int index = lines.Length - 1; index >= 0; index--)
         {
@@ -368,10 +353,12 @@ internal sealed class ControlWindow : Form
                 joined = lines[first].Text + " " + joined;
                 area = Rectangle.Union(lines[first].Area, area);
             }
-            if (FindScreenSignal(joined) != null)
+            signal = FindScreenSignal(joined);
+            if (signal != null)
                 return new ScreenLine { Text = joined, Area = area };
             index = first;
         }
+        signal = null;
         return null;
     }
 
@@ -449,11 +436,7 @@ internal sealed class ControlWindow : Form
 
 internal sealed class Bubble : Form
 {
-    private readonly Label category, reason, evidence;
-    private readonly Label step;
-    private readonly Label suggestion;
-    private readonly Button copy;
-    private Signal current;
+    private readonly Label category, step;
     private bool pointerUp = true;
     public event EventHandler Dismissed;
 
@@ -467,43 +450,18 @@ internal sealed class Bubble : Form
         TopMost = true;
         ShowInTaskbar = false;
         BackColor = Palette.Paper;
-        ClientSize = new Size(480, 405);
+        ClientSize = new Size(364, 108);
         SizeChanged += delegate { ShapeBubble(); };
         ShapeBubble();
         Text = "AIRS · AI 과의존 신호";
 
-        Controls.Add(new HamsterArt { Bounds = new Rectangle(23, 21, 77, 67), Alert = true });
-        category = Palette.Label("", 111, 22, 325, 24, 10f, true, Palette.Green);
+        Controls.Add(new HamsterArt { Bounds = new Rectangle(13, 25, 63, 54), Alert = true });
+        category = Palette.Label("", 84, 21, 240, 20, 9f, true, Palette.Green);
         Controls.Add(category);
-        Controls.Add(Palette.Label("Airi의 질문 코칭", 111, 48, 329, 35, 16f, true, Palette.Ink));
-        evidence = Palette.Label("", 23, 94, 434, 46, 10f, true, Palette.Ink);
-        evidence.BackColor = Color.FromArgb(247, 233, 209);
-        evidence.Padding = new Padding(9, 5, 9, 3);
-        Palette.ClipCorners(evidence, 10);
-        Controls.Add(evidence);
-        reason = Palette.Label("", 23, 149, 434, 38, 10f, false, Palette.Muted);
-        Controls.Add(reason);
-        step = Palette.Label("", 23, 190, 434, 57, 10.5f, true, Palette.Ink);
+        step = Palette.Label("", 84, 44, 256, 42, 12f, true, Palette.Ink);
         Controls.Add(step);
-        Controls.Add(Palette.Label("이렇게 물어보면 어때요?", 23, 250, 405, 23, 10f, true, Palette.Green));
-        suggestion = Palette.Label("", 23, 276, 434, 67, 10.5f, true, Palette.Ink);
-        suggestion.BackColor = Palette.PaleGreen;
-        suggestion.Padding = new Padding(10, 6, 8, 4);
-        Palette.ClipCorners(suggestion, 13);
-        Controls.Add(suggestion);
-        copy = Palette.Button("추천 질문 복사", 23, 354, 151, 35, true);
-        copy.Click += delegate
-        {
-            try
-            {
-                Clipboard.SetText(current.Suggestion);
-                copy.Text = "복사했어요";
-                if (Dismissed != null) Dismissed(this, EventArgs.Empty);
-            }
-            catch (ExternalException) { copy.Text = "다시 복사"; }
-        };
-        Controls.Add(copy);
-        var dismiss = Palette.Button("닫기", 184, 354, 77, 35, false);
+        var dismiss = Palette.Button("×", 324, 19, 25, 25, false);
+        dismiss.AccessibleName = "안내 닫기";
         dismiss.Click += delegate { if (Dismissed != null) Dismissed(this, EventArgs.Empty); else Close(); };
         Controls.Add(dismiss);
     }
@@ -522,13 +480,8 @@ internal sealed class Bubble : Form
 
     public void Present(Signal signal, Rectangle workArea, Rectangle anchor = default(Rectangle))
     {
-        current = signal;
-        category.Text = "AI 과의존 신호 · " + signal.Label;
-        evidence.Text = "“" + signal.Evidence + "”";
-        reason.Text = signal.Reason;
-        step.Text = signal.Step;
-        suggestion.Text = signal.Suggestion;
-        copy.Text = "추천 질문 복사";
+        category.Text = "Airi  ·  " + signal.Label;
+        step.Text = Detector.Direction(signal);
         Position(workArea, anchor);
         Show();
         Position(workArea, anchor);
