@@ -356,7 +356,9 @@ internal sealed class ControlWindow : Form
 
     private static ScreenLine FindFlaggedLine(ScreenLine[] lines, out Signal signal)
     {
-        for (int index = lines.Length - 1; index >= 0; index--)
+        signal = null;
+        int flaggedIndex = -1;
+        for (int index = lines.Length - 1; index >= 0 && index >= flaggedIndex; index--)
         {
             int start = index;
             while (start > 0 && index - start < 4 && Adjacent(lines[start - 1], lines[start]))
@@ -368,23 +370,32 @@ internal sealed class ControlWindow : Form
             while (end + 1 < lines.Length && end - index < 2 && Adjacent(lines[end], lines[end + 1]))
                 end++;
             var nearby = lines.Skip(start).Take(end - start + 1).Select(row => row.Text);
-            signal = FindScreenSignal(string.Join(" ", nearby));
-            if (signal == null) continue;
+            string context = NormalizeScreenText(string.Join(" ", nearby));
+            var command = Detector.FindShortCommand(NormalizeScreenText(line.Text), context);
+            if (command != null)
+            {
+                signal = command;
+                return new ScreenLine { Text = signal.Evidence, Area = area };
+            }
+            var candidateSignal = Detector.Find(context);
+            if (candidateSignal == null) continue;
 
-            string evidence = Detector.Compact(signal.Evidence.TrimEnd('…'));
+            string evidence = Detector.Compact(candidateSignal.Evidence.TrimEnd('…'));
+            int evidenceIndex = index;
             for (int candidate = end; candidate >= start; candidate--)
             {
-                string segment = Detector.Compact(lines[candidate].Text);
+                string segment = Detector.Compact(NormalizeScreenText(lines[candidate].Text));
                 if (segment.Length >= 4 && (segment.Contains(evidence) || evidence.Contains(segment)))
                 {
-                    area = lines[candidate].Area;
+                    evidenceIndex = candidate;
                     break;
                 }
             }
-            return new ScreenLine { Text = signal.Evidence, Area = area };
+            if (evidenceIndex <= flaggedIndex) continue;
+            flaggedIndex = evidenceIndex;
+            signal = candidateSignal;
         }
-        signal = null;
-        return null;
+        return signal == null ? null : new ScreenLine { Text = signal.Evidence, Area = lines[flaggedIndex].Area };
     }
 
     private static bool Adjacent(ScreenLine above, ScreenLine below)
@@ -395,11 +406,15 @@ internal sealed class ControlWindow : Form
             && Math.Abs(above.Area.Left - below.Area.Left) <= Math.Max(36, height * 2);
     }
 
-    private static Signal FindScreenSignal(string text)
+    private static string NormalizeScreenText(string text)
     {
-        // Repair observed OCR substitutions at the end of a statement.
-        return Detector.Find(System.Text.RegularExpressions.Regex.Replace(
-            text, @"알려\s*(?:주의(?=\s*(?:[.!?]|$))|주니(?=\s*[.!]))", "알려 줘"));
+        // Only correct the observed "빨리" substitution in an isolated solve command.
+        text = System.Text.RegularExpressions.Regex.Replace(
+            text, @"^\s*할리\s+풀어(?=\s*[.!?]?\s*$)", "빨리 풀어");
+        text = System.Text.RegularExpressions.Regex.Replace(
+            text, @"^\s*풀어\s*할리(?=\s*[.!?]?\s*$)", "풀어 빨리");
+        return System.Text.RegularExpressions.Regex.Replace(
+            text, @"알려\s*(?:주의(?=\s*(?:[.!?]|$))|주니(?=\s*[.!]))", "알려 줘");
     }
 
     private void Restore()

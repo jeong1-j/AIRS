@@ -81,11 +81,36 @@ internal static class ScreenReader
 
     public static async Task<ScreenText> Read(OcrEngine engine, Bitmap image)
     {
-        // Keep normal-sized text at its original resolution and cap larger captures to the OCR API's limit.
-        double scale = Math.Min(1.0, (double)OcrEngine.MaxImageDimension / Math.Max(image.Width, image.Height));
+        var full = await ReadScaled(engine, image, 1).ConfigureAwait(false);
+        // Chat composers are usually near the bottom and short, small Hangul is easy to misread at 1x.
+        int height = Math.Min(image.Height, Math.Max(130, Math.Min(260, image.Height / 3)));
+        var region = new Rectangle(0, image.Height - height, image.Width, height);
+        using (var strip = image.Clone(region, PixelFormat.Format32bppRgb))
+        {
+            var detail = await ReadScaled(engine, strip, 2).ConfigureAwait(false);
+            if (detail.Lines.Length == 0) return full;
+            foreach (var line in detail.Lines)
+                line.Area.Offset(0, region.Top);
+            var smallText = detail.Lines.Where(line => line.Area.Top > region.Top + 3
+                && !full.Lines.Any(original => original.Area.Height >= 24 && SameRow(line.Area, original.Area)))
+                .ToArray();
+            var rest = full.Lines.Where(line => !smallText.Any(extra => SameRow(line.Area, extra.Area)));
+            return new ScreenText(rest.Concat(smallText).OrderBy(line => line.Area.Top).ThenBy(line => line.Area.Left));
+        }
+    }
+
+    private static bool SameRow(Rectangle first, Rectangle second)
+    {
+        return first.Right > second.Left && second.Right > first.Left
+            && Math.Abs(first.Top - second.Top) <= Math.Max(10, Math.Max(first.Height, second.Height) / 2);
+    }
+
+    private static async Task<ScreenText> ReadScaled(OcrEngine engine, Bitmap image, double requestedScale)
+    {
+        double scale = Math.Min(requestedScale, (double)OcrEngine.MaxImageDimension / Math.Max(image.Width, image.Height));
         int width = Math.Max(1, (int)(image.Width * scale));
         int height = Math.Max(1, (int)(image.Height * scale));
-        using (var scaled = scale < 1 ? new Bitmap(width, height, PixelFormat.Format32bppRgb) : null)
+        using (var scaled = scale != 1 ? new Bitmap(width, height, PixelFormat.Format32bppRgb) : null)
         using (var bitmap = new SoftwareBitmap(BitmapPixelFormat.Bgra8, width, height, BitmapAlphaMode.Ignore))
         {
             if (scaled != null)
