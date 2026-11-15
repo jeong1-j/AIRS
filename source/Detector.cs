@@ -20,9 +20,9 @@ internal sealed class Signal
 
 internal static class Detector
 {
-    private const string Ask = @"(?:줘|주세요|주라|줄래|주시겠어요|주실수있나요|주십시오|부탁해(?:요)?|해줄수있어(?:요)?)";
-    private const string Product = @"(?:과제|숙제|수행평가|(?:탐구|실험)?보고서(?:의?결론)?|실험결론|발표대본|발표자료|에세이|독후감|이문제|문제|방정식|이식|과제코드|이코드|이거)";
-    private const string Produce = @"(?:완성해|작성해|만들어|써|적어|풀어|해|짜|구현해)";
+    private const string Ask = @"(?:줘(?:요)?|주세요|주라|줄래(?:요)?|주면안돼(?:요)?|줄수있(?:어(?:요)?|나요|을까(?:요)?)|주시(?:겠어요|겠습니까|면좋겠어요)|주실수있나요|주십시오|부탁(?:해(?:요)?|합니다)|해줄수있어(?:요)?)";
+    private const string Product = @"(?:과제코드|이코드|이문제들?|문제들?|과제|숙제|수행평가|(?:탐구|실험)?보고서(?:의?결론)?|실험결론|발표대본|발표자료|에세이|독후감|방정식|이식|이거)";
+    private const string Produce = @"(?:완성해|작성해|만들어|써|적어|풀어|해결해|해|짜|구현해)";
     private const string Verify = @"(?:검산|검증|검토|확인|대조|비교|피드백|점검|오류|틀린|맞는지|고칠|부족|반례)";
     private const string Request = @"(?:알려|말해|보여|설명해|찾아|짚어|정리해|제시해|봐|도와|해|내|써)" + Ask;
     public const string Clauses = @"(?:[!?。！？;\n\r]+|(?<!\d)\.|\.(?!\d)|[,，]+|(?<=\s)(?:그리고|하지만|다만|그런데|대신에|그래도)\s+)";
@@ -38,14 +38,17 @@ internal static class Detector
     public const string Completion = @"(?:줘|주세요|줄래|알려|설명|부탁|어떻게|인가요|맞나요|볼까|확인할|하는방법|검토|검산|비교|대조|찾아|짚어|보여|돼\?|되나요)";
     public const string ClauseNegation = @"(?:해|써|작성해|풀어|알려|구해|만들어|말해)(?:달라는(?:게|것이)아니|주지(?:는)?마)|(?:답|정답)만(?:원하는(?:게|것이)아니|달라는(?:게|것이)아니)|할필요(?:가)?없(?:지않|(?:는|다는)(?:건|것은|게|것이)아니)|(?:대신(?:써|해)달라는(?:게|건)아니)";
     public const string ContextBridge = @"(?:그|이)(?:대신|부분|단계|방법)|(?:다음|남은|이어서|여기서|어디서|어떤점|검산|검토|검증|대조|확인|피드백)";
-    public const string AnswerContext = @"(?:내(?:가|답|풀이|계산)|제가|직접).{0,35}(?:비교|검산|확인|대조|맞춰|채점)|(?:비교|검산|채점)(?:하려고|할게|해볼|하기위해|용으로)";
+    public const string AnswerContext = @"(?:내(?:가|답|풀이|계산|결과)|제가|직접).{0,35}(?:비교|검산|대조|채점|맞는지|틀렸는지|맞춰)|(?:비교|검산|대조|채점)(?:하려고|할게|해볼|하기위해|용으로)";
+    private const string BypassCheck = @"(?:비교|검산|대조|채점|검증|확인)(?:은|는|을|를|도)?(?:안하|안할|하지마|하지않|없이|말고|할필요없|필요없|안해도|생략)";
     public const string Partial = @"(?:한|첫|다음|이|그)(?:단계|줄|문장)(?:만|를|을)?|(?:막힌|틀린|이|해당|한)(?:부분|곳|줄)(?:만|을|부터)?|(?:힌트|개요|뼈대|방향|예시|피드백)(?:만|를|을)?";
     public const string ExplicitWhole = @"(?:처음부터끝까지|통째로|전부|그대로제출|제출용|아무것도안하고|전체를?대신|답만)";
+    private const string LimitedRequest = @"(?:힌트|개요|뼈대|초안|예시|뭘먼저|어디서부터|첫단계|틀린부분|오류|방법|원리|개념)(?:만|부터|를|을)?(?:어떻게)?(?:알려|말해|보여|설명해|찾아|짚어|정리해|제시해|만들어|작성해|써)" + Ask;
 
     public const string Skip = @"(?:(?:확인|검증|검산|출처확인|근거확인)(?:은|는|을|를|도)?(?:할필요(?:가)?없|하지(?:는)?마|안해도(?:돼|되|됨)|생략해)|(?:검산|검증|확인|출처|근거)(?:도)?없이(?:그대로)?(?:써|낼|제출|복사|적어|답해|알려)|(?:네|너의|ai|인공지능의?)?답(?:변)?(?:을|은|는)?그대로(?:제출할|써낼|쓸게|복붙할))";
-    public const string Answer = @"(?:(?:최종)?(?:정답|답|결과|결론|숫자)만(?:바로|그냥|빨리)?(?:" + Request + @"|구해" + Ask + @"|내놔)|(?:풀이|설명|이유|과정)(?:은|는|을|를)?(?:빼고|없이|생략하고).{0,9}(?:정답|답|결과)(?:만|을)?" + Request + @")";
+    public const string Answer = @"(?:(?:최종)?(?:정답|답|결과|결론|숫자|[1-9]번답)만(?:바로|그냥|빨리|좀)?(?:" + Request + @"|(?:구해)?" + Ask + @"|내놔|$)|(?:풀이|설명|이유|과정)(?:은|는|을|를)?(?:빼고|없이|생략하고).{0,9}(?:정답|답|결과)(?:만|을)?" + Request + @")";
     public const string HandOff = @"(?:(?:처음부터끝까지|대신|그대로제출할수있게|제출용으로|통째로|전부|다알아서|전부알아서).{0,23}" + Produce + Ask
-        + @"|" + Product + @"(?:를|을|는|은|의)?(?:네가|너가|니가|그냥|좀|한번|전부|모두|알아서|다|대신|바로){0,4}" + Produce + Ask
+        + @"|" + Product + @"(?:를|을|는|은|의|도)?(?:네가|너가|니가|그냥|좀|한번|한꺼번에|전부|모두|알아서|다|대신|바로){0,4}" + Produce + Ask
+        + @"|(?:그대로|복붙해서|복사해서)(?:바로)?(?:낼|제출할|쓸)(?:수있게|수있도록).{0,26}" + Produce + Ask
         + @"|(?:판단|결정|선택)(?:을|은|는)?(?:전부|다)?(?:네가|너가|알아서)(?:해" + Ask + @"|해$)|(?:답안|완성본)(?:을|을그대로|을대신)?(?:만들어|써|작성해)" + Ask + @")";
 
     public static readonly string[][] Topics = {
@@ -78,14 +81,18 @@ internal static class Detector
     public static Signal Find(string text)
     {
         var clauses = Split(text);
-        for (int i = 0; i < clauses.Length; i++)
+        var condensed = clauses.Select(Compact).ToArray();
+        // Review the most recent request first, using adjacent clauses for intent.
+        for (int i = clauses.Length - 1; i >= 0; i--)
         {
-            string clause = Compact(clauses[i]);
+            string clause = condensed[i];
             if (Match(clause, Mention) || Match(clause, ClauseNegation)) continue;
-            string nearby = Compact(string.Join(" ", clauses.Skip(Math.Max(0, i - 1)).Take(i == 0 ? 2 : 3)));
+            string nearby = string.Concat(condensed.Skip(Math.Max(0, i - 1)).Take(i == 0 ? 2 : 3));
             if (Match(clause, Skip)) return Coach(0, clause, nearby, clauses[i]);
-            if (Match(clause, Answer) && !Match(nearby, AnswerContext)) return Coach(1, clause, nearby, clauses[i]);
-            if (Match(clause, HandOff) && (!Match(clause, Partial) || Match(clause, ExplicitWhole)))
+            bool verifying = Match(nearby, AnswerContext) && !Match(nearby, BypassCheck);
+            if (Match(clause, Answer) && !verifying) return Coach(1, clause, nearby, clauses[i]);
+            if (Match(clause, HandOff) && !Match(clause, LimitedRequest)
+                && (!Match(clause, Partial) || Match(clause, ExplicitWhole)))
                 return Coach(2, clause, nearby, clauses[i]);
         }
         return null;
@@ -146,15 +153,15 @@ internal static class Detector
 
     public static string Direction(Signal signal)
     {
-        if (signal.Kind == "skip") return "핵심 주장 하나를 원자료와 대조해 보세요.";
+        if (signal.Kind == "skip") return "핵심 주장 ↔ 원자료, 하나만 대조해 봐요.";
         var topic = Topics.FirstOrDefault(item => item[3] == signal.Suggestion);
         switch (topic == null ? "" : topic[0])
         {
-            case "science": return "가장 크게 변한 구간의 수치를 적어 보세요.";
-            case "code": return "예상과 다른 입력 하나부터 찾아보세요.";
-            case "math": return "문제의 조건 하나를 식으로 옮겨 보세요.";
-            case "writing": return "핵심 주장과 근거를 한 줄씩 적어 보세요.";
-            default: return signal.Kind == "answer" ? "풀이의 첫 줄부터 직접 써 보세요." : "직접 할 수 있는 첫 단계부터 시작해 보세요.";
+            case "science": return "그래프에서 변화가 가장 큰 구간부터.";
+            case "code": return "예상과 다른 입력 하나부터.";
+            case "math": return "주어진 조건 하나를 식으로.";
+            case "writing": return "핵심 주장과 근거를 한 줄씩.";
+            default: return signal.Kind == "answer" ? "풀이의 첫 줄부터." : "직접 해볼 첫 단계 하나부터.";
         }
     }
 }

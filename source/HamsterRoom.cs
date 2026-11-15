@@ -129,7 +129,7 @@ internal sealed class HamsterRoom : Form
         }
         if (!good)
         {
-            feedback.Text = "내가 어디까지 했는지 적고, 확인받고 싶은 한 가지를 물어볼래요?";
+            feedback.Text = "직접 해본 부분과 막힌 지점부터 적어봐요.";
             return;
         }
         if (progress.Unlimited) feedback.Text = "좋은 질문이에요. 관리자 모드에서는 씨앗을 제한 없이 써요.";

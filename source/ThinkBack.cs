@@ -274,6 +274,7 @@ internal sealed class ControlWindow : Form
         if (busy) return;
         Rectangle bounds;
         if (!ScreenReader.TryGetBounds(window, processId, out bounds)) return;
+        var overlay = bubble.Visible ? bubble.Bounds : Rectangle.Empty;
         int scanSession = session;
         var scanEngine = engine;
         busy = true;
@@ -282,7 +283,16 @@ internal sealed class ControlWindow : Form
             var capture = await Task.Run(async delegate
             {
                 using (var image = ScreenReader.Capture(bounds))
-                    return await ScreenReader.Read(scanEngine, image);
+                {
+                    var result = await ScreenReader.Read(scanEngine, image);
+                    if (overlay.IsEmpty) return result;
+                    return new ScreenText(result.Lines.Where(line =>
+                    {
+                        var area = line.Area;
+                        area.Offset(bounds.Location);
+                        return !overlay.IntersectsWith(area);
+                    }));
+                }
             });
             if (scanSession != session || IsDisposed || window != ScreenReader.GetForegroundWindow()) return;
             string text = capture.Text;
@@ -306,7 +316,12 @@ internal sealed class ControlWindow : Form
             }
             Signal signal;
             var flagged = FindFlaggedLine(capture.Lines, out signal);
-            if (flagged == null) return;
+            if (flagged == null)
+            {
+                if (window == lastWindow && now - lastSeen >= TimeSpan.FromSeconds(2))
+                    lastRiskKey = null;
+                return;
+            }
 
             string riskKey = Detector.Compact(signal.Evidence);
             bool repeated = window == lastWindow && riskKey == lastRiskKey && now - lastSeen < TimeSpan.FromSeconds(28);
@@ -325,7 +340,7 @@ internal sealed class ControlWindow : Form
             RefreshHamster();
             hideBubble.Stop();
             hideBubble.Start();
-            progress.Record(flagged.Text, true, false);
+            progress.Record(signal.Evidence, true, false);
         }
         catch (Exception error)
         {
@@ -343,20 +358,30 @@ internal sealed class ControlWindow : Form
     {
         for (int index = lines.Length - 1; index >= 0; index--)
         {
+            int start = index;
+            while (start > 0 && index - start < 4 && Adjacent(lines[start - 1], lines[start]))
+                start--;
             var line = lines[index];
-            string joined = line.Text;
             var area = line.Area;
-            int first = index;
-            while (first > 0 && index - first < 2 && Adjacent(lines[first - 1], lines[first]))
+            int end = index;
+            // Keep the continuation that states why a student is asking, even when OCR wraps it.
+            while (end + 1 < lines.Length && end - index < 2 && Adjacent(lines[end], lines[end + 1]))
+                end++;
+            var nearby = lines.Skip(start).Take(end - start + 1).Select(row => row.Text);
+            signal = FindScreenSignal(string.Join(" ", nearby));
+            if (signal == null) continue;
+
+            string evidence = Detector.Compact(signal.Evidence.TrimEnd('…'));
+            for (int candidate = end; candidate >= start; candidate--)
             {
-                first--;
-                joined = lines[first].Text + " " + joined;
-                area = Rectangle.Union(lines[first].Area, area);
+                string segment = Detector.Compact(lines[candidate].Text);
+                if (segment.Length >= 4 && (segment.Contains(evidence) || evidence.Contains(segment)))
+                {
+                    area = lines[candidate].Area;
+                    break;
+                }
             }
-            signal = FindScreenSignal(joined);
-            if (signal != null)
-                return new ScreenLine { Text = joined, Area = area };
-            index = first;
+            return new ScreenLine { Text = signal.Evidence, Area = area };
         }
         signal = null;
         return null;
@@ -365,15 +390,16 @@ internal sealed class ControlWindow : Form
     private static bool Adjacent(ScreenLine above, ScreenLine below)
     {
         int gap = below.Area.Top - above.Area.Bottom;
-        return gap >= 0 && gap <= Math.Max(above.Area.Height, below.Area.Height)
-            && Math.Abs(above.Area.Left - below.Area.Left) <= 28;
+        int height = Math.Max(above.Area.Height, below.Area.Height);
+        return gap >= -height / 4 && gap <= height + 5
+            && Math.Abs(above.Area.Left - below.Area.Left) <= Math.Max(36, height * 2);
     }
 
     private static Signal FindScreenSignal(string text)
     {
         // Repair observed OCR substitutions at the end of a statement.
         return Detector.Find(System.Text.RegularExpressions.Regex.Replace(
-            text, @"알려\s*(?:주의(?=\s*[.!?]?\s*$)|주니(?=\s*[.!]\s*$))", "알려 줘"));
+            text, @"알려\s*(?:주의(?=\s*(?:[.!?]|$))|주니(?=\s*[.!]))", "알려 줘"));
     }
 
     private void Restore()
@@ -480,7 +506,7 @@ internal sealed class Bubble : Form
 
     public void Present(Signal signal, Rectangle workArea, Rectangle anchor = default(Rectangle))
     {
-        category.Text = "Airi  ·  " + signal.Label;
+        category.Text = "Airi의 힌트";
         step.Text = Detector.Direction(signal);
         Position(workArea, anchor);
         Show();
