@@ -110,6 +110,7 @@ internal sealed class AccountWindow : Form
 
     public AccountWindow(LocalAccounts accounts)
     {
+        SuspendLayout();
         Text = "AIRS · 이 PC의 계정";
         ClientSize = new Size(447, 340);
         StartPosition = FormStartPosition.CenterParent;
@@ -123,13 +124,19 @@ internal sealed class AccountWindow : Form
         Controls.Add(Palette.Label("가입한 계정으로 로그인하세요.", 24, 67, 400, 24, 10, false, Palette.Muted));
         Controls.Add(Palette.Label("아이디", 24, 102, 392, 20, 10, true, Palette.Ink));
         Controls.Add(Palette.Label("비밀번호", 24, 162, 392, 20, 10, true, Palette.Ink));
-        var name = new TextBox { Bounds = new Rectangle(24, 126, 398, 27), Font = Palette.Font(11), MaxLength = 24, AccessibleName = "아이디" };
-        var secret = new TextBox { Bounds = new Rectangle(24, 186, 398, 27), Font = Palette.Font(11), MaxLength = 128,
-            UseSystemPasswordChar = true, AccessibleName = "비밀번호" };
-        var feedback = Palette.Label("처음이라면 아이디와 비밀번호를 적고 회원가입을 눌러 주세요.",
-            24, 219, 399, 34, 9, false, Palette.Muted);
-        Controls.Add(name);
-        Controls.Add(secret);
+        var nameField = new SurfaceCard(new Rectangle(24, 123, 398, 34), Palette.Surface, Palette.Line, 13);
+        var secretField = new SurfaceCard(new Rectangle(24, 183, 398, 34), Palette.Surface, Palette.Line, 13);
+        var name = new TextBox { Bounds = new Rectangle(11, 5, 376, 24), Font = Palette.Font(11), MaxLength = 24,
+            BackColor = Palette.Surface, ForeColor = Palette.Ink, BorderStyle = BorderStyle.None, AccessibleName = "아이디" };
+        var secret = new TextBox { Bounds = new Rectangle(11, 5, 376, 24), Font = Palette.Font(11), MaxLength = 128,
+            BackColor = Palette.Surface, ForeColor = Palette.Ink, BorderStyle = BorderStyle.None, UseSystemPasswordChar = true,
+            AccessibleName = "비밀번호" };
+        var feedback = Palette.Label("처음이라면 먼저 회원가입을 눌러요.",
+            24, 219, 399, 38, 9, false, Palette.Muted);
+        nameField.Controls.Add(name);
+        secretField.Controls.Add(secret);
+        Controls.Add(nameField);
+        Controls.Add(secretField);
         Controls.Add(feedback);
 
         var signIn = Palette.Button("로그인", 24, 262, 193, 42, true);
@@ -190,6 +197,7 @@ internal sealed class AccountWindow : Form
         join.Click += delegate { submit(true); };
         Controls.Add(signIn);
         Controls.Add(join);
+        ResumeLayout(true);
     }
 }
 

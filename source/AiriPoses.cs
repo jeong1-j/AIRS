@@ -55,6 +55,12 @@ internal static class AiriPoses
         return Rests[behavior].Length * RestFrameSeconds;
     }
 
+    public static void DrawTreat(Graphics graphics, string id, RectangleF target)
+    {
+        int treat = id == "seed" ? 0 : id == "berry" ? 1 : id == "apple" ? 2 : 3;
+        graphics.DrawImage(Treats, target, new Rectangle(treat * 64, 0, 64, 64), GraphicsUnit.Pixel);
+    }
+
     public static void Draw(Graphics graphics, Size size, int frame, bool left, string outfit, bool happy, ShopItem food = null)
     {
         var source = Frames[frame];
@@ -72,11 +78,10 @@ internal static class AiriPoses
         graphics.DrawImage(frame < 12 ? Atlas : Interactions, body, source, GraphicsUnit.Pixel);
         if (food != null && frame >= 12 && frame <= 14)
         {
-            int treat = food.Id == "seed" ? 0 : food.Id == "berry" ? 1 : food.Id == "apple" ? 2 : 3;
             var paw = Paws[frame - 12];
             float side = w * .245f * (frame == 14 ? .76f : 1);
             var held = new RectangleF(body.Left + w * paw.X - side / 2, body.Top + h * paw.Y - side / 2, side, side);
-            graphics.DrawImage(Treats, held, new Rectangle(treat * 64, 0, 64, 64), GraphicsUnit.Pixel);
+            DrawTreat(graphics, food.Id, held);
         }
         if (frame != 11)
         {

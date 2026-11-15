@@ -79,12 +79,13 @@ internal sealed class ControlWindow : Form
 
     public ControlWindow()
     {
+        SuspendLayout();
         Text = Program.FullName;
         Icon = Program.AppIcon;
         Font = Palette.Font(10f);
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(482, 550);
+        ClientSize = new Size(484, 534);
         BackColor = Palette.Paper;
         ForeColor = Palette.Ink;
         FormBorderStyle = FormBorderStyle.FixedSingle;
@@ -92,39 +93,39 @@ internal sealed class ControlWindow : Form
         StartPosition = FormStartPosition.CenterScreen;
         Palette.RoundWindow(this);
 
-        var backdrop = new Panel { Bounds = new Rectangle(336, 52, 119, 119), BackColor = Palette.PaleGreen };
-        Palette.ClipCorners(backdrop, 59);
-        var mascot = new HamsterArt { Bounds = new Rectangle(12, 5, 100, 106), BackColor = Palette.PaleGreen };
-        backdrop.Controls.Add(mascot);
-        Controls.Add(backdrop);
-        Controls.Add(Palette.Label(Program.FullName, 30, 27, 305, 26, 10f, true, Palette.Green));
-        Controls.Add(Palette.Label("AI 질문 앞에서\n한 번 더 생각하기", 28, 64, 320, 92, 25f, true, Palette.Ink));
-        Controls.Add(Palette.Label("ChatGPT에 질문을 쓰는 동안, 답이나 과제를 맡기려는 표현이 보이면 Airi가 한 줄 힌트를 줘요.", 30, 171, 420, 57, 11f, false, Palette.Muted));
+        var welcome = new WelcomeCard(new Rectangle(22, 21, 440, 205));
+        welcome.Controls.Add(Palette.Label("AIRS", 20, 16, 166, 31, 16, true, Palette.Green));
+        welcome.Controls.Add(Palette.Label("AI 질문 앞에서\n한 번 더 생각하기", 20, 49, 273, 88, 20.5f, true, Palette.Ink));
+        welcome.Controls.Add(Palette.Label("질문을 쓰면 Airi가\n다음 단계를 알려줘요.", 21, 145, 249, 47, 10, false, Palette.Muted));
+        welcome.Controls.Add(new HamsterArt { Bounds = new Rectangle(288, 40, 119, 124) });
+        Controls.Add(welcome);
 
-        var line = new Panel { Bounds = new Rectangle(30, 240, 422, 1), BackColor = Palette.Line };
-        Controls.Add(line);
-        status = Palette.Label("●  감지 꺼짐", 30, 254, 420, 44, 10f, true, Palette.Muted);
-        Controls.Add(status);
-        toggle = Palette.Button("화면 감지 시작", 30, 305, 203, 46, true);
+        var monitor = new SurfaceCard(new Rectangle(22, 240, 440, 93), Palette.Surface, Palette.Line);
+        monitor.Controls.Add(Palette.Label("화면 감지", 16, 13, 214, 28, 13, true, Palette.Ink));
+        status = Palette.Label("●  감지 꺼짐", 16, 48, 234, 28, 10, true, Palette.Muted);
+        monitor.Controls.Add(status);
+        toggle = Palette.Button("화면 감지 시작", 263, 25, 159, 43, true);
         toggle.Click += delegate { SetMonitoring(!monitoring); };
-        Controls.Add(toggle);
-        var room = Palette.Button("햄스터 집", 247, 305, 205, 46, false);
+        monitor.Controls.Add(toggle);
+        Controls.Add(monitor);
+
+        var room = Palette.Button("햄스터 집", 22, 347, 213, 53, false, AppIcon.Home, Palette.Oat);
         room.Click += delegate { OpenRoom(); };
         Controls.Add(room);
-        roam = Palette.Button("", 30, 364, 203, 40, false);
+        roam = Palette.Button("", 22, 410, 213, 53, false, AppIcon.Paw, Palette.Mint);
         roam.Click += delegate { progress.SetRoam(!progress.Roam); };
         Controls.Add(roam);
-        var stats = Palette.Button("주간 통계", 247, 364, 205, 40, false);
+        var stats = Palette.Button("주간 통계", 249, 347, 213, 53, false, AppIcon.Chart, Palette.Mint);
         stats.Click += delegate { OpenStats(); };
         Controls.Add(stats);
-        accountButton = Palette.Button("로그인 / 회원가입", 30, 425, 203, 40, false);
+        accountButton = Palette.Button("로그인 / 회원가입", 249, 410, 213, 53, false, AppIcon.Account, Palette.Surface);
         accountButton.Click += delegate { OpenAccount(); };
         Controls.Add(accountButton);
-        adminButton = Palette.Button("관리자 · 학생 활동", 247, 425, 205, 40, false);
+        adminButton = Palette.Button("관리자 · 학생 활동", 249, 476, 213, 36, false);
         adminButton.Click += delegate { OpenAdmin(); };
         adminButton.Visible = false;
         Controls.Add(adminButton);
-        Controls.Add(Palette.Label("창을 닫아도 켜 둔 감지는 계속돼요. 작업 표시줄 오른쪽 아이콘에서 감지를 멈추거나 앱을 종료할 수 있어요. 화면은 이 PC에서만 읽어요.", 30, 482, 420, 56, 9f, false, Palette.Muted));
+        Controls.Add(Palette.Label("창을 닫아도 켠 감지는 계속돼요.\n화면은 이 PC에서만 읽어요.", 24, 474, 222, 45, 9, false, Palette.Muted));
 
         var menu = new ContextMenuStrip();
         menu.Items.Add("AIRS 열기", null, delegate { Restore(); });
@@ -149,6 +150,7 @@ internal sealed class ControlWindow : Form
         progress.Fed += walker.Feed;
         Shown += delegate { RefreshHamster(); };
         Resize += delegate { if (WindowState == FormWindowState.Minimized) HideToTray(); };
+        ResumeLayout(true);
     }
 
     private void OnProgressChanged(object sender, EventArgs e) { RefreshHamster(); }
@@ -209,8 +211,8 @@ internal sealed class ControlWindow : Form
 
     private void RefreshHamster()
     {
-        roam.Text = progress.Roam ? "햄스터 숨기기" : "햄스터 산책시키기";
-        roamMenu.Text = roam.Text;
+        roam.Text = progress.Roam ? "햄스터 숨기기" : "햄스터 산책";
+        roamMenu.Text = progress.Roam ? roam.Text : "햄스터 산책시키기";
         walker.RefreshState(progress, !bubble.Visible);
     }
 
@@ -546,7 +548,7 @@ internal sealed class Bubble : Form
         StartPosition = FormStartPosition.Manual;
         TopMost = true;
         ShowInTaskbar = false;
-        BackColor = Palette.Paper;
+        BackColor = Palette.Oat;
         ClientSize = new Size(388, 118);
         SizeChanged += delegate { ShapeBubble(); };
         ShapeBubble();
@@ -621,13 +623,22 @@ internal sealed class Bubble : Form
 
 internal static class Palette
 {
-    public static readonly Color Paper = Color.FromArgb(252, 250, 243);
-    public static readonly Color Ink = Color.FromArgb(57, 42, 32);
-    public static readonly Color Green = Color.FromArgb(35, 85, 68);
-    public static readonly Color Muted = Color.FromArgb(71, 91, 80);
-    public static readonly Color Lime = Color.FromArgb(218, 169, 92);
-    public static readonly Color PaleGreen = Color.FromArgb(230, 242, 232);
-    public static readonly Color Line = Color.FromArgb(218, 230, 218);
+    public static readonly Color Paper = Color.FromArgb(249, 247, 237);
+    public static readonly Color Surface = Color.FromArgb(255, 254, 248);
+    public static readonly Color Ink = Color.FromArgb(43, 53, 44);
+    public static readonly Color Green = Color.FromArgb(45, 88, 66);
+    public static readonly Color DeepGreen = Color.FromArgb(35, 72, 54);
+    public static readonly Color Muted = Color.FromArgb(77, 93, 79);
+    public static readonly Color Mint = Color.FromArgb(229, 241, 225);
+    public static readonly Color Wash = Color.FromArgb(219, 236, 216);
+    public static readonly Color Hush = Color.FromArgb(243, 241, 230);
+    public static readonly Color Line = Color.FromArgb(223, 228, 208);
+    public static readonly Color Oat = Color.FromArgb(253, 243, 222);
+    public static readonly Color Peach = Color.FromArgb(250, 231, 218);
+    public static readonly Color Pine = Color.FromArgb(104, 144, 108);
+    public static readonly Color Honey = Color.FromArgb(238, 179, 82);
+    public static readonly Color Clay = Color.FromArgb(193, 112, 77);
+    public static readonly Color Earth = Color.FromArgb(110, 77, 51);
 
     public static Font Font(float size, bool bold = false)
     {
@@ -643,18 +654,13 @@ internal static class Palette
         };
     }
 
-    public static Button Button(string text, int x, int y, int width, int height, bool primary)
+    public static Button Button(string text, int x, int y, int width, int height, bool primary,
+        AppIcon icon = AppIcon.None, Color? tint = null)
     {
-        var button = new Button
+        return new PillButton(primary, icon, tint ?? Mint)
         {
-            Text = text, Bounds = new Rectangle(x, y, width, height), Font = Font(10f, true),
-            FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand,
-            BackColor = primary ? Green : PaleGreen, ForeColor = primary ? Color.White : Green
+            Text = text, Bounds = new Rectangle(x, y, width, height), Font = Font(height < 32 ? 9 : 10, true)
         };
-        button.FlatAppearance.BorderColor = primary ? Green : Line;
-        button.FlatAppearance.MouseOverBackColor = primary ? Color.FromArgb(43, 102, 81) : Color.FromArgb(215, 235, 220);
-        ClipCorners(button, 20);
-        return button;
     }
 
     [DllImport("dwmapi.dll")]
@@ -666,30 +672,14 @@ internal static class Palette
         window.HandleCreated += delegate
         {
             int round = 2;
+            int caption = ColorTranslator.ToWin32(Paper);
+            int text = ColorTranslator.ToWin32(Ink);
+            int border = ColorTranslator.ToWin32(Line);
             DwmSetWindowAttribute(window.Handle, 33, ref round, sizeof(int));
+            DwmSetWindowAttribute(window.Handle, 34, ref border, sizeof(int));
+            DwmSetWindowAttribute(window.Handle, 35, ref caption, sizeof(int));
+            DwmSetWindowAttribute(window.Handle, 36, ref text, sizeof(int));
         };
-    }
-
-    public static void ClipCorners(Control control, int radius)
-    {
-        Action reshape = delegate
-        {
-            float diameter = Math.Min(radius * 2, Math.Min(control.Width, control.Height));
-            if (diameter < 2) return;
-            using (var path = new GraphicsPath())
-            {
-                float right = control.Width - diameter;
-                float bottom = control.Height - diameter;
-                path.AddArc(0, 0, diameter, diameter, 180, 90);
-                path.AddArc(right, 0, diameter, diameter, 270, 90);
-                path.AddArc(right, bottom, diameter, diameter, 0, 90);
-                path.AddArc(0, bottom, diameter, diameter, 90, 90);
-                path.CloseFigure();
-                control.Region = new Region(path);
-            }
-        };
-        control.SizeChanged += delegate { reshape(); };
-        reshape();
     }
 }
 

@@ -9,7 +9,6 @@ internal sealed class WeeklyStats : Form
     private static readonly Color Good = Color.FromArgb(84, 129, 105);
     private static readonly Color Risk = Color.FromArgb(188, 114, 75);
     private static readonly Color Other = Color.FromArgb(229, 193, 133);
-    private static readonly Color Card = Color.FromArgb(255, 253, 248);
     private readonly HamsterProgress progress;
     private readonly Label range, totalLabel, goodLabel, riskLabel, activity, comparison;
     private readonly Button next;
@@ -21,6 +20,7 @@ internal sealed class WeeklyStats : Form
 
     public WeeklyStats(HamsterProgress progress)
     {
+        SuspendLayout();
         this.progress = progress;
         monday = Monday(DateTime.Today);
         Text = "AIRS · 주간 통계";
@@ -48,7 +48,7 @@ internal sealed class WeeklyStats : Form
         AddMetric("확인한 질문", 24, Color.FromArgb(252, 242, 226), out totalLabel, out activity);
         Label caption;
         AddMetric("스스로 확인하는 질문", 243, Color.FromArgb(237, 244, 235), out goodLabel, out caption);
-        caption.Text = "힌트 · 풀이 검토 · 근거 확인";
+        caption.Text = "힌트 · 풀이 검토 · 근거";
         AddMetric("과의존 신호 비율", 462, Color.FromArgb(249, 237, 228), out riskLabel, out comparison);
 
         bars = AddChart(new Rectangle(24, 204, 391, 202), "요일별 질문", PaintBars);
@@ -57,15 +57,15 @@ internal sealed class WeeklyStats : Form
         Controls.Add(Palette.Label("창에서 감지한 신호와 앱에서 확인한 질문을 집계해요. 같은 날 같은 문장은 한 번만 세어요.",
             25, 595, 646, 29, 9, false, Palette.Muted));
         progress.Changed += OnChanged;
+        ResumeLayout(true);
         RefreshWeek();
     }
 
     private void AddMetric(string title, int x, Color background, out Label value, out Label note)
     {
-        var panel = new Panel { Bounds = new Rectangle(x, 97, 206, 94), BackColor = background };
-        Palette.ClipCorners(panel, 17);
+        var panel = new SurfaceCard(new Rectangle(x, 97, 206, 94), background, Palette.Line);
         panel.Controls.Add(Palette.Label(title, 13, 10, 181, 20, 10, true, Palette.Muted));
-        value = Palette.Label("", 12, 32, 181, 34, 20, true, Palette.Ink);
+        value = Palette.Label("", 12, 32, 181, 36, 18, true, Palette.Ink);
         note = Palette.Label("", 13, 68, 181, 19, 8, false, Palette.Muted);
         panel.Controls.Add(value);
         panel.Controls.Add(note);
@@ -74,8 +74,7 @@ internal sealed class WeeklyStats : Form
 
     private Chart AddChart(Rectangle bounds, string title, PaintEventHandler paint)
     {
-        var card = new Chart { Bounds = bounds, BackColor = Card, AccessibleName = title };
-        Palette.ClipCorners(card, 17);
+        var card = new Chart(bounds) { AccessibleName = title };
         card.Paint += paint;
         Controls.Add(card);
         return card;
@@ -239,7 +238,10 @@ internal sealed class WeeklyStats : Form
             g.DrawString(text, font, brush, new RectangleF(x, y, width, 35), center);
     }
 
-    private sealed class Chart : Panel { public Chart() { DoubleBuffered = true; } }
+    private sealed class Chart : SurfaceCard
+    {
+        public Chart(Rectangle bounds) : base(bounds, Palette.Surface, Palette.Line) { }
+    }
     private void OnChanged(object sender, EventArgs e) { RefreshWeek(); }
 
     protected override void Dispose(bool disposing)

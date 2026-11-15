@@ -191,7 +191,8 @@ internal sealed class HamsterArt : Control
     public HamsterArt()
     {
         DoubleBuffered = true;
-        BackColor = Palette.Paper;
+        SetStyle(ControlStyles.SupportsTransparentBackColor, true);
+        BackColor = Color.Transparent;
     }
 
     private static Image Load(string name)
