@@ -5,7 +5,7 @@ $csc = Join-Path $env:windir 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
 $metadata = 'Windows.Foundation', 'Windows.Globalization', 'Windows.Media', 'Windows.Graphics', 'Windows.Storage' | ForEach-Object {
     '/reference:' + (Join-Path $env:windir ('System32/WinMetadata/' + $_ + '.winmd'))
 }
-$runtime = 'System.Runtime', 'System.Runtime.WindowsRuntime', 'System.Runtime.InteropServices.WindowsRuntime', 'System.Threading.Tasks', 'System.Collections' | ForEach-Object {
+$runtime = 'System.Runtime', 'System.Runtime.WindowsRuntime', 'System.Runtime.InteropServices.WindowsRuntime', 'System.Threading.Tasks', 'System.Collections', 'UIAutomationClient', 'UIAutomationTypes', 'WindowsBase' | ForEach-Object {
     $assembly = $_
     $file = Get-ChildItem -LiteralPath (Join-Path $env:windir "Microsoft.NET/assembly/GAC_MSIL/$assembly") -Recurse -Filter "$assembly.dll" |
         Select-Object -First 1

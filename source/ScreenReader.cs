@@ -25,6 +25,13 @@ internal static class ScreenReader
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr window, out int process);
 
+    public static int WindowProcessId(IntPtr window)
+    {
+        int process;
+        GetWindowThreadProcessId(window, out process);
+        return process;
+    }
+
     [DllImport("user32.dll")]
     private static extern IntPtr GetDesktopWindow();
 
@@ -41,9 +48,7 @@ internal static class ScreenReader
     {
         bounds = Rectangle.Empty;
         if (window == IntPtr.Zero || window == GetDesktopWindow() || window == GetShellWindow()) return false;
-        int process;
-        GetWindowThreadProcessId(window, out process);
-        if (process == ownProcessId) return false;
+        if (WindowProcessId(window) == ownProcessId) return false;
 
         const int ExtendedFrameBounds = 9;
         NativeRect rect;

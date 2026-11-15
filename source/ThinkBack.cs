@@ -72,6 +72,9 @@ internal sealed class ControlWindow : Form
     private DateTime coachingUntil;
     private string lastRiskKey;
     private IntPtr bubbleWindow;
+    private IntPtr draftWindow;
+    private string lastDraft;
+    private bool draftAnalyzed;
 
     public ControlWindow()
     {
@@ -95,7 +98,7 @@ internal sealed class ControlWindow : Form
         Controls.Add(backdrop);
         Controls.Add(Palette.Label(Program.FullName, 30, 27, 305, 26, 10f, true, Palette.Green));
         Controls.Add(Palette.Label("AI 질문 앞에서\n한 번 더 생각하기", 28, 64, 320, 92, 25f, true, Palette.Ink));
-        Controls.Add(Palette.Label("지금 보고 있는 창에서 AI에게 답이나 과제를 맡기는 표현을 찾으면 캐릭터가 알려줘요.", 30, 171, 420, 57, 11f, false, Palette.Muted));
+        Controls.Add(Palette.Label("ChatGPT에 질문을 쓰는 동안, 답이나 과제를 맡기려는 표현이 보이면 Airi가 한 줄 힌트를 줘요.", 30, 171, 420, 57, 11f, false, Palette.Muted));
 
         var line = new Panel { Bounds = new Rectangle(30, 240, 422, 1), BackColor = Palette.Line };
         Controls.Add(line);
@@ -231,13 +234,7 @@ internal sealed class ControlWindow : Form
             try { engine = ScreenReader.KoreanEngine(); }
             catch (ExternalException)
             {
-                MessageBox.Show("Windows 글자 인식을 시작할 수 없어요. 잠시 뒤 다시 시도해 주세요.", Program.Name);
-                return;
-            }
-            if (engine == null)
-            {
-                MessageBox.Show("Windows 설정의 언어 옵션에서 한국어 기본 입력을 설치한 뒤 다시 실행해 주세요.", "한국어 글자 인식 필요");
-                return;
+                engine = null;
             }
         }
 
@@ -246,9 +243,14 @@ internal sealed class ControlWindow : Form
         lastWindow = IntPtr.Zero;
         lastRiskKey = null;
         coachingBaseline = null;
+        lastDraft = null;
+        draftWindow = IntPtr.Zero;
+        draftAnalyzed = false;
+        poll.Interval = 400;
         toggle.Text = enabled ? "화면 감지 중지" : "화면 감지 시작";
         monitorMenu.Text = toggle.Text;
-        status.Text = enabled ? "●  감지 켜짐 · 지금 보고 있는 창" : "●  감지 꺼짐";
+        status.Text = !enabled ? "●  감지 꺼짐"
+            : engine == null ? "●  감지 켜짐 · ChatGPT 입력창" : "●  감지 켜짐 · 지금 보고 있는 창";
         status.ForeColor = enabled ? Palette.Green : Palette.Muted;
         tray.Text = enabled ? "AIRS · 감지 켜짐" : "AIRS · 감지 꺼짐";
         if (enabled)
@@ -277,11 +279,14 @@ internal sealed class ControlWindow : Form
         var overlay = bubble.Visible ? bubble.Bounds : Rectangle.Empty;
         int scanSession = session;
         var scanEngine = engine;
+        ScreenLine draft = null;
         busy = true;
         try
         {
             var capture = await Task.Run(async delegate
             {
+                draft = PromptReader.Read(window, bounds);
+                if (draft != null || scanEngine == null) return null;
                 using (var image = ScreenReader.Capture(bounds))
                 {
                     var result = await ScreenReader.Read(scanEngine, image);
@@ -295,15 +300,38 @@ internal sealed class ControlWindow : Form
                 }
             });
             if (scanSession != session || IsDisposed || window != ScreenReader.GetForegroundWindow()) return;
-            string text = capture.Text;
+            poll.Interval = draft == null ? 400 : 150;
+            if (draft == null)
+            {
+                lastDraft = null;
+                draftAnalyzed = false;
+                if (capture == null) return;
+            }
+            else
+            {
+                // Let one more sample catch continuations like “풀어 ... 말고 힌트만 줘”.
+                if (draftWindow != window || lastDraft != draft.Text)
+                {
+                    draftWindow = window;
+                    lastDraft = draft.Text;
+                    draftAnalyzed = false;
+                    if (draft.Text.Length == 0 && bubble.Visible) DismissBubble();
+                    return;
+                }
+                if (draftAnalyzed || draft.Text.Length == 0) return;
+                draftAnalyzed = true;
+            }
+            string text = draft == null ? capture.Text : draft.Text;
             DateTime now = DateTime.UtcNow;
             if (coachingBaseline != null && window == coachingWindow && now < coachingUntil)
             {
-                string revised = text.Split('\n').Reverse().FirstOrDefault(line =>
+                var candidates = draft == null ? text.Split('\n').Reverse() : new[] { text };
+                string revised = candidates.FirstOrDefault(line =>
                     Detector.IsGood(line) && !coachingBaseline.Contains(Detector.Compact(line)));
                 if (revised != null)
                 {
                     coachingBaseline = null;
+                    if (draft != null && bubble.Visible) DismissBubble();
                     progress.Record(revised, false, true);
                     if (progress.Award(revised))
                         tray.ShowBalloonTip(2200, "Airi가 기뻐해요!", "해바라기씨 " + HamsterProgress.Reward + "알을 받았어요.", ToolTipIcon.None);
@@ -315,9 +343,19 @@ internal sealed class ControlWindow : Form
                 coachingBaseline = null;
             }
             Signal signal;
-            var flagged = FindFlaggedLine(capture.Lines, out signal);
+            ScreenLine flagged;
+            if (draft != null)
+            {
+                signal = Detector.Find(text);
+                flagged = signal == null ? null : draft;
+            }
+            else
+            {
+                flagged = FindFlaggedLine(capture.Lines, out signal);
+            }
             if (flagged == null)
             {
+                if (draft != null && bubble.Visible) DismissBubble();
                 if (window == lastWindow && now - lastSeen >= TimeSpan.FromSeconds(2))
                     lastRiskKey = null;
                 return;

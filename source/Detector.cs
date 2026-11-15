@@ -57,6 +57,7 @@ internal static class Detector
         + @"|(?:" + ShortProduct + "|" + Scope + ")" + CommandLead
         + @"(?:해|해봐|써|적어|작성해|완성해|짜|만들어|만들어봐|구현해))" + Ask + "?" + CommandTail;
     private const string LimitedScope = @"(?:(?:이|그|한|첫|다음|해당|막힌|틀린)(?:단계|부분|줄|문장|곳)|힌트|개요|방향|예시|뼈대)(?:만|부터)(?!(?:말고|받았|봤|읽었|들었))";
+    private const string Correction = @"(?:^(?:아니(?:야|요)?|아니다|잠깐|정정)|(?:정답|답|전체풀이|풀이전체|전부|전체)(?:은|는|을|를)?(?:말고|필요없))";
 
     public const string Skip = @"(?:(?:확인|검증|검산|출처확인|근거확인)(?:은|는|을|를|도)?(?:할필요(?:가)?없|하지(?:는)?마|안해도(?:돼|되|됨)|생략해)|(?:검산|검증|확인|출처|근거)(?:도)?없이(?:그대로)?(?:써|낼|제출|복사|적어|답해|알려)|(?:네|너의|ai|인공지능의?)?답(?:변)?(?:을|은|는)?그대로(?:제출할|써낼|쓸게|복붙할))";
     public const string Answer = @"(?:(?:최종)?(?:정답|답|결과|결론|숫자|[1-9]번답)만(?:바로|그냥|빨리|좀)?(?:" + Request + @"|(?:구해)?" + Ask + @"|내놔|$)|(?:풀이|설명|이유|과정)(?:은|는|을|를)?(?:빼고|없이|생략하고).{0,9}(?:정답|답|결과)(?:만|을)?" + Request + @")";
@@ -103,6 +104,8 @@ internal static class Detector
             if (Match(clause, Mention) || Match(clause, ClauseNegation)) continue;
             string nearby = string.Concat(condensed.Skip(Math.Max(0, i - 1)).Take(i == 0 ? 2 : 3));
             if (Match(clause, Skip)) return Coach(0, clause, nearby, clauses[i]);
+            string next = string.Concat(condensed.Skip(i + 1).Take(2));
+            if (Match(next, Correction) && Match(next, LimitedScope)) continue;
             if (Match(clause, Answer) && !IsVerifying(nearby)) return Coach(1, clause, nearby, clauses[i]);
             if (Match(clause, HandOff) && !Match(clause, LimitedRequest)
                 && (!Match(clause, Partial) || Match(clause, ExplicitWhole)))
