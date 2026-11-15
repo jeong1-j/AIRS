@@ -71,6 +71,7 @@ internal sealed class ControlWindow : Form
     private string coachingBaseline;
     private DateTime coachingUntil;
     private string lastRiskKey;
+    private string lastHint;
     private IntPtr bubbleWindow;
     private IntPtr draftWindow;
     private string lastDraft;
@@ -242,6 +243,7 @@ internal sealed class ControlWindow : Form
         monitoring = enabled;
         lastWindow = IntPtr.Zero;
         lastRiskKey = null;
+        lastHint = null;
         coachingBaseline = null;
         lastDraft = null;
         draftWindow = IntPtr.Zero;
@@ -375,10 +377,12 @@ internal sealed class ControlWindow : Form
 
             string riskKey = Detector.Compact(signal.Evidence);
             bool repeated = window == lastWindow && riskKey == lastRiskKey && now - lastSeen < TimeSpan.FromSeconds(28);
+            bool hintChanged = !editorArea.IsEmpty && signal.Step != lastHint;
             lastWindow = window;
             lastRiskKey = riskKey;
             lastSeen = now;
-            if (repeated) return;
+            if (repeated && !hintChanged) return;
+            lastHint = signal.Step;
 
             coachingWindow = window;
             coachingBaseline = Detector.Compact(text);
@@ -390,7 +394,7 @@ internal sealed class ControlWindow : Form
             RefreshHamster();
             hideBubble.Stop();
             hideBubble.Start();
-            progress.Record(signal.Evidence, true, false);
+            if (!repeated) progress.Record(signal.Evidence, true, false);
         }
         catch (Exception error)
         {
@@ -543,7 +547,7 @@ internal sealed class Bubble : Form
         TopMost = true;
         ShowInTaskbar = false;
         BackColor = Palette.Paper;
-        ClientSize = new Size(364, 108);
+        ClientSize = new Size(388, 118);
         SizeChanged += delegate { ShapeBubble(); };
         ShapeBubble();
         Text = "AIRS · AI 과의존 신호";
@@ -551,9 +555,9 @@ internal sealed class Bubble : Form
         Controls.Add(new HamsterArt { Bounds = new Rectangle(13, 25, 63, 54), Alert = true });
         category = Palette.Label("", 84, 21, 240, 20, 9f, true, Palette.Green);
         Controls.Add(category);
-        step = Palette.Label("", 84, 44, 256, 42, 12f, true, Palette.Ink);
+        step = Palette.Label("", 84, 44, 286, 56, 12f, true, Palette.Ink);
         Controls.Add(step);
-        var dismiss = Palette.Button("×", 324, 19, 25, 25, false);
+        var dismiss = Palette.Button("×", 348, 19, 25, 25, false);
         dismiss.AccessibleName = "안내 닫기";
         dismiss.Click += delegate { if (Dismissed != null) Dismissed(this, EventArgs.Empty); else Close(); };
         Controls.Add(dismiss);

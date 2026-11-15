@@ -52,6 +52,8 @@ internal static class Detector
         + CommandLead + @"(?:(?:알려|말해|보여|구해|써|내)" + Ask + "?|내놔|" + Ask + ")" + CommandTail;
     private const string ShortProduct = @"(?:" + Product + @"|코드)(?:를|을|는|은|도)?";
     private const string BareSolution = @"(?:풀어|풀어봐|해결해|계산해)";
+    private const string Equation = @"(?<![a-zA-Z0-9_.])(?:\d+\s*[xy](?:\s*[+\-−]\s*\d+)?|[xy]\s*[+\-−]\s*\d+)\s*=(?!=)\s*[+\-−]?\d+(?:\.\d+)?(?![\d.])";
+    private const string MeasuredValue = @"\d+(?:\.\d+)?\s*(?:℃|°C|cm|mm|km|mg|kg|m/s|%|개|명|원|초|분|시간)";
     private const string ShortHandoff = @"^(?:(?:힌트|개요|방향|예시)만말고)?" + CommandLead
         + @"(?:(?:" + ShortProduct + @")?" + CommandLead + BareSolution
         + @"|(?:" + ShortProduct + "|" + Scope + ")" + CommandLead
@@ -103,14 +105,16 @@ internal static class Detector
             string clause = condensed[i];
             if (Match(clause, Mention) || Match(clause, ClauseNegation)) continue;
             string nearby = string.Concat(condensed.Skip(Math.Max(0, i - 1)).Take(i == 0 ? 2 : 3));
-            if (Match(clause, Skip)) return Coach(0, clause, nearby, clauses[i]);
+            int first = Math.Max(0, i - 3);
+            string promptContext = string.Join(" ", clauses.Skip(first).Take(i - first + 2));
+            if (Match(clause, Skip)) return Coach(0, clause, promptContext, clauses[i]);
             string next = string.Concat(condensed.Skip(i + 1).Take(2));
             if (Match(next, Correction) && Match(next, LimitedScope)) continue;
-            if (Match(clause, Answer) && !IsVerifying(nearby)) return Coach(1, clause, nearby, clauses[i]);
+            if (Match(clause, Answer) && !IsVerifying(nearby)) return Coach(1, clause, promptContext, clauses[i]);
             if (Match(clause, HandOff) && !Match(clause, LimitedRequest)
                 && (!Match(clause, Partial) || Match(clause, ExplicitWhole)))
-                return Coach(2, clause, nearby, clauses[i]);
-            var command = MatchShortCommand(clause, nearby, clauses[i]);
+                return Coach(2, clause, promptContext, clauses[i]);
+            var command = MatchShortCommand(clause, nearby, promptContext, clauses[i]);
             if (command != null) return command;
         }
         return null;
@@ -120,18 +124,30 @@ internal static class Detector
     {
         var parts = Split(text);
         if (parts.Length != 1) return null;
-        return MatchShortCommand(Compact(parts[0]), Compact(nearbyText), parts[0]);
+        return MatchShortCommand(Compact(parts[0]), Compact(nearbyText), nearbyText, parts[0]);
     }
 
-    private static Signal MatchShortCommand(string clause, string nearby, string evidence)
+    private static Signal MatchShortCommand(string clause, string nearby, string promptContext, string evidence)
     {
         // A neighboring OCR row can be a continuation like “풀어 / 첫 부분만”.
         if (Match(nearby, LimitedScope) || Match(nearby, Mention) || Match(nearby, ClauseNegation))
             return null;
         if (Match(clause, ShortAnswer))
-            return IsVerifying(nearby) ? null : Coach(1, clause, nearby, evidence);
+            return IsVerifying(nearby) ? null : Coach(1, clause, promptContext, evidence);
         if (Match(clause, ShortHandoff))
-            return Coach(2, clause, nearby, evidence);
+            return Coach(2, clause, promptContext, evidence);
+
+        // A short solve request can sit on the same line as the equation it refers to.
+        var equation = Regex.Match(evidence, Equation, RegexOptions.CultureInvariant);
+        if (equation.Success)
+        {
+            string request = evidence.Substring(equation.Index + equation.Length).Trim();
+            string verb = Compact(request);
+            if (Match(verb, ShortHandoff))
+                return Coach(2, verb, promptContext, request);
+            if (Match(verb, ShortAnswer) && !IsVerifying(nearby))
+                return Coach(1, verb, promptContext, request);
+        }
         return null;
     }
 
@@ -173,19 +189,49 @@ internal static class Detector
         return Regex.IsMatch(text, pattern, RegexOptions.CultureInvariant);
     }
 
-    private static Signal Coach(int rule, string clause, string context, string evidence)
+    private static Signal Coach(int rule, string clause, string promptContext, string evidence)
     {
         var feedback = Feedback[rule];
+        string context = Compact(promptContext);
         var topic = rule == 0 ? null : (Topics.FirstOrDefault(candidate => Match(clause, candidate[1]))
             ?? Topics.FirstOrDefault(candidate => Match(context, candidate[1])));
-        string step = topic == null ? feedback[3] : topic[2];
         string suggestion = topic == null ? feedback[4] : topic[3];
-        if (rule != 0 && Match(context, PriorWork))
-        {
-            step = "이미 해본 부분은 살리고, 막힌 지점 한 곳만 골라 도움을 요청해 볼래요?";
-        }
+        string step = HintFor(rule, topic == null ? "" : topic[0], context, promptContext);
         return new Signal(feedback[0], feedback[1], feedback[2], step, suggestion,
             evidence.Length <= 76 ? evidence : evidence.Substring(0, 73) + "…");
+    }
+
+    private static string HintFor(int rule, string topic, string context, string promptContext)
+    {
+        if (rule == 0) return "확인할 주장 하나를 고르고,\n원자료에서 근거를 찾아봐요.";
+        if (Match(context, PriorWork))
+            return "막힌 줄과 시도한 방법을 적고,\n그다음 단계만 도움받아 봐요.";
+
+        switch (topic)
+        {
+            case "science":
+                if (Regex.Matches(promptContext, MeasuredValue, RegexOptions.IgnoreCase).Count >= 2)
+                    return Match(context, @"측정값(?:은|이)|실험값(?:은|이)|결과(?:는|가)|나왔|나타났")
+                        ? "두 조건의 측정값을 비교해 보고,\n변화의 해석에서 막힌 점을 물어봐요."
+                        : "조건별로 나온 측정값과 단위를\n질문에 함께 적어 봐요.";
+                return "어떤 조건을 바꿨고 뭘 측정했는지\n질문에 먼저 적어 봐요.";
+            case "code":
+                return Match(context, @"입력.{0,40}(?:출력|반환)|오류메시지[:：]?\w|exception|typeerror|valueerror")
+                    ? "기대한 결과와 실제 결과를 비교하고,\n달라진 부분부터 찾아 봐요."
+                    : "코드가 받아야 할 입력과\n나와야 할 결과를 먼저 적어 봐요.";
+            case "writing":
+                return Match(context, @"주제는|에대해|에대한|에관한")
+                    ? "이 글에서 말할 내용을 한 줄 쓰고,\n그걸 뒷받침할 근거까지 골라 봐요."
+                    : "글의 주제나 분량이 정해져 있다면\n질문에 먼저 적어 봐요.";
+        }
+
+        if (Match(promptContext, Equation))
+            return "식에서 구할 값을 표시하고,\n첫 번째 식 변형까지만 해 봐요.";
+        if (Match(promptContext, MeasuredValue))
+            return "이미 아는 값과 구할 값을 나누고,\n둘을 잇는 식까지만 세워 봐요.";
+        if (rule == 1 || topic == "math" || Match(context, BareSolution))
+            return "문제 본문과 필요한 조건을\n질문에 같이 적어 봐요.";
+        return "무엇을 만들고 어떤 기준을 맞출지\n질문에 먼저 적어 봐요.";
     }
 
     public static string Compact(string text)
@@ -195,18 +241,6 @@ internal static class Detector
 
     public static string Direction(Signal signal)
     {
-        if (signal.Kind == "skip") return "핵심 주장 ↔ 원자료, 하나만 대조해 봐요.";
-        if (signal.Kind == "handoff" && Match(Compact(signal.Evidence),
-            @"^(?:" + Urgency + "|" + Scope + @")*(?:이거)?(?:풀어|계산해|해결해)"))
-            return "주어진 조건 하나부터 적어 봐요.";
-        var topic = Topics.FirstOrDefault(item => item[3] == signal.Suggestion);
-        switch (topic == null ? "" : topic[0])
-        {
-            case "science": return "그래프에서 변화가 가장 큰 구간부터.";
-            case "code": return "예상과 다른 입력 하나부터.";
-            case "math": return "주어진 조건 하나를 식으로.";
-            case "writing": return "핵심 주장과 근거를 한 줄씩.";
-            default: return signal.Kind == "answer" ? "풀이의 첫 줄부터." : "직접 해볼 첫 단계 하나부터.";
-        }
+        return signal.Step;
     }
 }
