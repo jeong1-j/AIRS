@@ -4,6 +4,8 @@ AIRS(AI Reliance Regulation System)는 생성형 AI에 질문을 작성할 때 �
 
 [Windows v1.2.8 ZIP 받기](https://github.com/jeong1-j/AIRS/releases/download/v1.2.8/AIRS-Windows.zip) · [릴리스](https://github.com/jeong1-j/AIRS/releases/tag/v1.2.8) · [자료 출처와 이용 조건](THIRD_PARTY_NOTICES.md)
 
+[앱 소개 페이지](https://airs-mint.vercel.app/) · [시연 영상 · 2분 27초](https://github.com/jeong1-j/AIRS/releases/download/v1.2.8/AIRS-Demo-v1.2.8.mp4) · [발표 이미지와 설명](https://github.com/jeong1-j/AIRS/releases/download/v1.2.8/AIRS-Presentation-v1.2.8.zip)
+
 ## Windows에서 실행
 
 1. 실행 중인 이전 AIRS가 있으면 작업 표시줄 오른쪽 알림 영역에서 AIRS 아이콘을 우클릭하고 **종료**를 선택합니다.
