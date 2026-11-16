@@ -12,7 +12,9 @@
 | Airi 동작 이미지와 AIRS 아이콘 | ChatGPT로 생성한 기본 햄스터를 참고해 동작 이미지와 씨앗 말풍선 아이콘을 이미지 생성 도구로 제작. [OpenAI 이용약관](https://openai.com/policies/terms-of-use/) 참조 | 산책·간식 반응·앱 및 소개 페이지 아이콘 |
 | AIRS 코드 | 팀 MINT 프로젝트. Codex로 코드 작성·수정·검증 지원을 받음. 저장소에 별도 공개 라이선스 미지정 | Windows 앱과 소개 페이지 |
 | ChatGPT | [OpenAI ChatGPT](https://chatgpt.com/) · 입력과 화면 시연 환경에 해당 서비스의 이용 조건 적용 | AIRS의 지원 입력 대상 |
+| Windows 글꼴 | [맑은 고딕](https://learn.microsoft.com/en-us/typography/font-list/malgun-gothic) · [Segoe UI Symbol](https://learn.microsoft.com/en-us/typography/font-list/segoe-ui-symbol) · 운영체제 제공 글꼴 사용 | 앱 화면과 발표 이미지. 글꼴 파일은 배포물에서 제외 |
 | Windows 음성 합성 | Windows의 Microsoft Heami 음성 사용 | 시연 영상의 한국어 내레이션 |
+| FFmpeg | [FFmpeg 라이선스 안내](https://ffmpeg.org/legal.html) · 시연 영상 편집에 사용 | 도구를 실행해 MP4 제작. FFmpeg 바이너리는 배포물에서 제외 |
 | Vercel 및 GitHub Releases | [Vercel](https://vercel.com/) · [GitHub Releases](https://docs.github.com/repositories/releasing-projects-on-github/about-releases) | 소개 페이지 호스팅과 실행 파일 배포 |
 
 Windows 앱은 운영체제가 제공하는 API를 호출합니다. 빌드에 사용한 Microsoft 런타임과 OCR 엔진은 AIRS-Windows.zip에 포함되지 않습니다. 저장소 공개 여부와 재배포 라이선스 부여 여부는 별개입니다.
