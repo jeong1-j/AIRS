@@ -4,7 +4,7 @@ AIRS(AI Reliance Regulation System)는 생성형 AI에 질문을 작성할 때 �
 
 [Windows v1.2.8 ZIP 받기](https://github.com/jeong1-j/AIRS/releases/download/v1.2.8/AIRS-Windows.zip) · [릴리스](https://github.com/jeong1-j/AIRS/releases/tag/v1.2.8) · [자료 출처와 이용 조건](THIRD_PARTY_NOTICES.md)
 
-[앱 소개 페이지](https://airs-mint.vercel.app/) · [시연 영상 · 2분 27초](https://github.com/jeong1-j/AIRS/releases/download/v1.2.8/AIRS-Demo-v1.2.8.mp4) · [발표 이미지와 설명](https://github.com/jeong1-j/AIRS/releases/download/v1.2.8/AIRS-Presentation-v1.2.8.zip)
+[앱 소개 페이지](https://airs-mint.vercel.app/) · [시연 영상 · 2분 27초](https://github.com/jeong1-j/AIRS/releases/download/v1.2.8/AIRS-Demo-v1.2.8.mp4) · [발표 이미지와 설명](https://github.com/jeong1-j/AIRS/releases/download/v1.2.8/AIRS-Screen-Captures-v1.2.8.zip)
 
 ## Windows에서 실행
 
@@ -35,7 +35,9 @@ powershell.exe -NoProfile -File .\source\build.ps1 -DesktopOnly
 
 ## 시스템 구성
 
-![AIRS Windows 앱의 입력, 판별, 화면 표시, 데이터 저장과 공개 배포 경로](site/assets/architecture.png)
+![AIRS Windows 앱의 입력, 판별, 화면 표시, 데이터 저장과 공개 배포 경로](docs/architecture-screen-flow.png)
+
+[발표용 앱 화면 10종과 설명](docs/screen-guide.png)
 
 ## 배포와 검증
 
