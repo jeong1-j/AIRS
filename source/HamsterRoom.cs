@@ -31,12 +31,7 @@ internal sealed class HamsterRoom : Form
         BackColor = Palette.Paper;
         Palette.RoundWindow(this);
 
-        var back = Palette.Button("‹  홈으로", 24, 27, 88, 37, false, tint: Palette.Surface);
-        back.AccessibleName = "홈으로 돌아가기";
-        back.DialogResult = DialogResult.Cancel;
-        back.Click += delegate { Close(); };
-        CancelButton = back;
-        Controls.Add(back);
+        Palette.AddHomeButton(this, 24, 27);
         Controls.Add(Palette.Label("햄스터 집", 126, 21, 320, 47, 25, true, Palette.Ink));
 
         var balance = new SurfaceCard(new Rectangle(526, 25, 202, 42), Palette.Oat, Palette.Line);

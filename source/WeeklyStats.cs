@@ -33,8 +33,9 @@ internal sealed class WeeklyStats : Form
         BackColor = Palette.Paper;
         Palette.RoundWindow(this);
 
-        Controls.Add(Palette.Label("주간 통계", 24, 17, 235, 43, 24, true, Palette.Ink));
-        Controls.Add(Palette.Label("질문 습관을 한 주씩 돌아봐요.", 25, 64, 307, 23, 10, false, Palette.Muted));
+        Palette.AddHomeButton(this, 24, 28);
+        Controls.Add(Palette.Label("주간 통계", 125, 17, 247, 43, 24, true, Palette.Ink));
+        Controls.Add(Palette.Label("질문 습관을 한 주씩 돌아봐요.", 126, 64, 261, 23, 10, false, Palette.Muted));
         var previous = Palette.Button("‹", 394, 33, 42, 35, false);
         previous.AccessibleName = "이전 주";
         previous.Click += delegate { monday = monday.AddDays(-7); RefreshWeek(); };

@@ -32,6 +32,7 @@ internal class SurfaceCard : Panel
 {
     private readonly Color fill, border;
     private readonly float radius;
+    public Color FillColor { get { return fill; } }
 
     public SurfaceCard(Rectangle bounds, Color fill, Color border, float radius = 22)
     {
@@ -74,10 +75,10 @@ internal sealed class PillButton : Button
         this.primary = primary;
         this.mark = mark;
         this.tint = tint;
-        SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.OptimizedDoubleBuffer, true);
         FlatStyle = FlatStyle.Flat;
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
+            ControlStyles.OptimizedDoubleBuffer | ControlStyles.Opaque, true);
         FlatAppearance.BorderSize = 0;
-        BackColor = Color.Transparent;
         ForeColor = primary ? Color.White : Palette.Green;
         Cursor = Cursors.Hand;
         UseMnemonic = false;
@@ -91,6 +92,9 @@ internal sealed class PillButton : Button
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics;
+        var card = Parent as SurfaceCard;
+        using (var background = new SolidBrush(card != null ? card.FillColor : Parent == null ? Palette.Paper : Parent.BackColor))
+            g.FillRectangle(background, ClientRectangle);
         g.SmoothingMode = SmoothingMode.AntiAlias;
         float scale = g.DpiX / 96;
         var area = new RectangleF(1, 1, Width - 2, Height - 2);

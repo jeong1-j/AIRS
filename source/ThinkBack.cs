@@ -161,8 +161,9 @@ internal sealed class ControlWindow : Form
         Restore();
         if (activeAccount != null)
         {
-            if (MessageBox.Show(this, activeAccount.Name + " 계정에서 로그아웃할까요?", "AIRS 계정",
-                MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes) SwitchAccount(null);
+            using (var profile = new ProfileWindow(accounts, activeAccount))
+                if (profile.ShowDialog(this) == DialogResult.Abort) SwitchAccount(null);
+                else RefreshAccount();
             return;
         }
         try
@@ -186,11 +187,16 @@ internal sealed class ControlWindow : Form
         progress = account == null ? HamsterProgress.Load() : HamsterProgress.Load(account);
         progress.Changed += OnProgressChanged;
         progress.Fed += walker.Feed;
-        bool admin = account != null && account.Admin;
-        accountButton.Text = account == null ? "로그인 / 회원가입" : "로그아웃 · " + (admin ? "관리자" : account.Name);
+        RefreshAccount();
+        RefreshHamster();
+    }
+
+    private void RefreshAccount()
+    {
+        bool admin = activeAccount != null && activeAccount.Admin;
+        accountButton.Text = activeAccount == null ? "로그인 / 회원가입" : "내 계정 · " + activeAccount.DisplayName;
         accountMenu.Text = accountButton.Text;
         adminButton.Visible = adminMenu.Visible = admin;
-        RefreshHamster();
     }
 
     private void OpenAdmin()
@@ -661,6 +667,17 @@ internal static class Palette
         {
             Text = text, Bounds = new Rectangle(x, y, width, height), Font = Font(height < 32 ? 9 : 10, true)
         };
+    }
+
+    public static Button AddHomeButton(Form window, int x, int y)
+    {
+        var back = Button("‹  홈으로", x, y, 88, 37, false, tint: Surface);
+        back.AccessibleName = "홈으로 돌아가기";
+        back.DialogResult = DialogResult.Cancel;
+        back.Click += delegate { window.Close(); };
+        window.CancelButton = back;
+        window.Controls.Add(back);
+        return back;
     }
 
     [DllImport("dwmapi.dll")]

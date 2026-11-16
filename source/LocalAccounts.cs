@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
@@ -18,6 +19,9 @@ internal sealed class LocalAccount
     [DataMember] public bool Admin;
     [DataMember] public byte[] Salt;
     [DataMember] public byte[] Hash;
+    [DataMember(EmitDefaultValue = false)] public string Nickname;
+
+    public string DisplayName { get { return string.IsNullOrEmpty(Nickname) ? (Admin ? "관리자" : Name) : Nickname; } }
 }
 
 internal sealed class LocalAccounts
@@ -41,26 +45,37 @@ internal sealed class LocalAccounts
             if (users == null) throw new SerializationException("AIRS accounts file is empty.");
         }
         else users = new List<LocalAccount>();
+        if (!users.Any(user => user.Admin))
+        {
+            var admin = new LocalAccount
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Name = AdminName,
+                Admin = true,
+                Salt = Convert.FromBase64String("BFbCV6N5URTTY2mi1DhvoQ=="),
+                Hash = Convert.FromBase64String("R8fJk1YE1Eeef1te1euJHxJbIYs0SOONSOW70Q4FrIA=")
+            };
+            users.Add(admin);
+            WriteJson(path, Serializer, users);
+        }
     }
 
-    public bool HasAdmin { get { return users.Any(user => user.Admin); } }
-
-    public LocalAccount Register(string name, string password)
+    public LocalAccount Register(string name, string password, string nickname = null)
     {
         name = name.Trim();
         if (!Regex.IsMatch(name, @"^[\p{L}\p{N}._-]{2,24}$"))
             throw new ArgumentException("아이디는 한글·영문·숫자·._-로 2~24자 입력해 주세요.");
-        bool admin = string.Equals(name, AdminName, StringComparison.OrdinalIgnoreCase);
-        int minimum = admin ? 8 : 10;
-        if (password.Length < minimum || password.Length > 128)
-            throw new ArgumentException("비밀번호는 " + minimum + "~128자로 입력해 주세요.");
-        if (admin && HasAdmin) throw new ArgumentException("이미 이 PC에 관리자가 등록되어 있어요.");
+        if (string.Equals(name, AdminName, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("이 아이디는 관리자용이에요. 학생 아이디를 입력해 주세요.");
+        if (password.Length < 10 || password.Length > 128)
+            throw new ArgumentException("비밀번호는 10~128자로 입력해 주세요.");
         if (users.Any(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase)))
             throw new ArgumentException("이미 사용 중인 아이디예요.");
 
         byte[] salt = new byte[16];
         using (var random = RandomNumberGenerator.Create()) random.GetBytes(salt);
-        var user = new LocalAccount { Id = Guid.NewGuid().ToString("N"), Name = name, Admin = admin, Salt = salt, Hash = Derive(password, salt) };
+        var user = new LocalAccount { Id = Guid.NewGuid().ToString("N"), Name = name, Nickname = NormalizeNickname(nickname),
+            Salt = salt, Hash = Derive(password, salt) };
         var updated = new List<LocalAccount>(users) { user };
         WriteJson(path, Serializer, updated);
         users.Add(user);
@@ -88,6 +103,29 @@ internal sealed class LocalAccounts
 
     public void SignOut() { signedIn = null; }
 
+    public void SetNickname(string nickname)
+    {
+        if (signedIn == null) throw new InvalidOperationException("Sign in before editing a nickname.");
+        string updated = NormalizeNickname(nickname);
+        string previous = signedIn.Nickname;
+        if (updated == previous) return;
+        signedIn.Nickname = updated;
+        try { WriteJson(path, Serializer, users); }
+        catch
+        {
+            signedIn.Nickname = previous;
+            throw;
+        }
+    }
+
+    private static string NormalizeNickname(string nickname)
+    {
+        nickname = (nickname ?? "").Trim();
+        if (nickname.Length > 80 || new StringInfo(nickname).LengthInTextElements > 20 || nickname.Any(char.IsControl))
+            throw new ArgumentException("닉네임은 줄바꿈 없이 20자까지 입력해 주세요.");
+        return nickname.Length == 0 ? null : nickname;
+    }
+
     private static byte[] Derive(string password, byte[] salt)
     {
         using (var key = new Rfc2898DeriveBytes(password, salt, Iterations, HashAlgorithmName.SHA256))
@@ -112,7 +150,7 @@ internal sealed class AccountWindow : Form
     {
         SuspendLayout();
         Text = "AIRS · 이 PC의 계정";
-        ClientSize = new Size(447, 340);
+        ClientSize = new Size(447, 396);
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         BackColor = Palette.Paper;
@@ -120,56 +158,43 @@ internal sealed class AccountWindow : Form
         AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
         Palette.RoundWindow(this);
-        Controls.Add(Palette.Label("AIRS 계정", 23, 17, 388, 44, 21, true, Palette.Ink));
-        Controls.Add(Palette.Label("가입한 계정으로 로그인하세요.", 24, 67, 400, 24, 10, false, Palette.Muted));
-        Controls.Add(Palette.Label("아이디", 24, 102, 392, 20, 10, true, Palette.Ink));
-        Controls.Add(Palette.Label("비밀번호", 24, 162, 392, 20, 10, true, Palette.Ink));
-        var nameField = new SurfaceCard(new Rectangle(24, 123, 398, 34), Palette.Surface, Palette.Line, 13);
-        var secretField = new SurfaceCard(new Rectangle(24, 183, 398, 34), Palette.Surface, Palette.Line, 13);
-        var name = new TextBox { Bounds = new Rectangle(11, 5, 376, 24), Font = Palette.Font(11), MaxLength = 24,
-            BackColor = Palette.Surface, ForeColor = Palette.Ink, BorderStyle = BorderStyle.None, AccessibleName = "아이디" };
-        var secret = new TextBox { Bounds = new Rectangle(11, 5, 376, 24), Font = Palette.Font(11), MaxLength = 128,
-            BackColor = Palette.Surface, ForeColor = Palette.Ink, BorderStyle = BorderStyle.None, UseSystemPasswordChar = true,
-            AccessibleName = "비밀번호" };
-        var feedback = Palette.Label("처음이라면 먼저 회원가입을 눌러요.",
-            24, 219, 399, 38, 9, false, Palette.Muted);
-        nameField.Controls.Add(name);
-        secretField.Controls.Add(secret);
-        Controls.Add(nameField);
-        Controls.Add(secretField);
+        var back = Palette.AddHomeButton(this, 24, 23);
+        Controls.Add(Palette.Label("AIRS 계정", 125, 17, 295, 44, 21, true, Palette.Ink));
+        Controls.Add(Palette.Label("학생 계정은 여기서 만들 수 있어요.", 24, 65, 400, 24, 10, false, Palette.Muted));
+        var name = AddField(this, "아이디", 96, 24);
+        var secret = AddField(this, "비밀번호", 156, 128, true);
+        var nickname = AddField(this, "회원가입 닉네임 (선택)", 216, 80);
+        var feedback = Palette.Label("처음이라면 학생 회원가입을 눌러요.",
+            24, 275, 399, 38, 9, false, Palette.Muted);
         Controls.Add(feedback);
 
-        var signIn = Palette.Button("로그인", 24, 262, 193, 42, true);
-        var join = Palette.Button("회원가입", 229, 262, 193, 42, false);
+        var signIn = Palette.Button("로그인", 24, 324, 193, 42, true);
+        var join = Palette.Button("학생 회원가입", 229, 324, 193, 42, false);
         bool pending = false;
         FormClosing += delegate(object sender, FormClosingEventArgs args) { if (pending) args.Cancel = true; };
         Action<bool> submit = async register =>
         {
             if (pending) return;
-            string id = name.Text.Trim(), password = secret.Text;
+            string id = name.Text.Trim(), password = secret.Text, display = nickname.Text;
             if (id.Length == 0 || password.Length == 0)
             {
                 feedback.Text = "아이디와 비밀번호를 입력해 주세요.";
                 (id.Length == 0 ? name : secret).Focus();
                 return;
             }
-            bool adminName = string.Equals(id, LocalAccounts.AdminName, StringComparison.OrdinalIgnoreCase);
-            if (register && adminName && !accounts.HasAdmin && MessageBox.Show(this,
-                "이 PC의 관리자 계정을 만들까요? 관리자는 이 PC에 등록된 학생의 활동 집계를 볼 수 있어요.",
-                "관리자 계정 만들기", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
             pending = true;
-            signIn.Enabled = join.Enabled = name.Enabled = secret.Enabled = false;
+            signIn.Enabled = join.Enabled = name.Enabled = secret.Enabled = nickname.Enabled = back.Enabled = false;
             feedback.Text = register ? "계정을 만드는 중이에요…" : "계정을 확인하는 중이에요…";
             LocalAccount verified = null;
             try
             {
-                verified = await Task.Run(() => register ? accounts.Register(id, password) : accounts.SignIn(id, password));
+                verified = await Task.Run(() => register ? accounts.Register(id, password, display) : accounts.SignIn(id, password));
                 if (register)
                 {
                     name.Text = verified.Name;
                     secret.Clear();
-                    feedback.Text = verified.Admin ? "관리자 계정을 만들었어요. 비밀번호를 다시 입력해 로그인하세요."
-                        : "학생 계정을 만들었어요. 비밀번호를 다시 입력해 로그인하세요.";
+                    nickname.Clear();
+                    feedback.Text = "학생 계정을 만들었어요. 비밀번호를 다시 입력해 로그인하세요.";
                 }
                 else if (verified == null)
                 {
@@ -183,7 +208,7 @@ internal sealed class AccountWindow : Form
             finally
             {
                 pending = false;
-                signIn.Enabled = join.Enabled = name.Enabled = secret.Enabled = true;
+                signIn.Enabled = join.Enabled = name.Enabled = secret.Enabled = nickname.Enabled = back.Enabled = true;
             }
             if (!register && verified != null)
             {
@@ -199,36 +224,101 @@ internal sealed class AccountWindow : Form
         Controls.Add(join);
         ResumeLayout(true);
     }
+
+    internal static TextBox AddField(Form window, string label, int y, int maxLength, bool password = false)
+    {
+        window.Controls.Add(Palette.Label(label, 24, y, 392, 20, 10, true, Palette.Ink));
+        var field = new SurfaceCard(new Rectangle(24, y + 21, 398, 34), Palette.Surface, Palette.Line, 13);
+        var input = new TextBox { Bounds = new Rectangle(11, 5, 376, 24), Font = Palette.Font(11), MaxLength = maxLength,
+            BackColor = Palette.Surface, ForeColor = Palette.Ink, BorderStyle = BorderStyle.None,
+            UseSystemPasswordChar = password, AccessibleName = label };
+        field.Controls.Add(input);
+        window.Controls.Add(field);
+        return input;
+    }
+}
+
+internal sealed class ProfileWindow : Form
+{
+    public ProfileWindow(LocalAccounts accounts, LocalAccount account)
+    {
+        SuspendLayout();
+        Text = "AIRS · 내 계정";
+        AutoScaleDimensions = new SizeF(96, 96);
+        AutoScaleMode = AutoScaleMode.Dpi;
+        ClientSize = new Size(447, 272);
+        StartPosition = FormStartPosition.CenterParent;
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        MaximizeBox = MinimizeBox = false;
+        BackColor = Palette.Paper;
+        Palette.RoundWindow(this);
+        Palette.AddHomeButton(this, 24, 23);
+        Controls.Add(Palette.Label("내 계정", 125, 17, 295, 44, 21, true, Palette.Ink));
+        Controls.Add(Palette.Label((account.Admin ? "관리자" : "학생") + " · " + account.Name, 24, 66, 398, 26, 10, false, Palette.Muted));
+        var nickname = AccountWindow.AddField(this, "닉네임", 101, 80);
+        nickname.Text = account.Nickname ?? "";
+        var feedback = Palette.Label("닉네임은 20자까지 설정할 수 있어요.", 24, 162, 398, 30, 9, false, Palette.Muted);
+        Controls.Add(feedback);
+        var save = Palette.Button("닉네임 저장", 24, 202, 193, 42, true);
+        save.Click += delegate
+        {
+            try
+            {
+                accounts.SetNickname(nickname.Text);
+                feedback.Text = "닉네임을 저장했어요.";
+            }
+            catch (ArgumentException error) { feedback.Text = error.Message; }
+            catch (IOException) { feedback.Text = "닉네임을 저장할 수 없어요."; }
+            catch (UnauthorizedAccessException) { feedback.Text = "닉네임을 저장할 수 없어요."; }
+        };
+        var signOut = Palette.Button("로그아웃", 229, 202, 193, 42, false);
+        signOut.DialogResult = DialogResult.Abort;
+        Controls.Add(save);
+        Controls.Add(signOut);
+        AcceptButton = save;
+        ResumeLayout(true);
+    }
 }
 
 internal sealed class AccountOverview : Form
 {
     public AccountOverview(IEnumerable<LocalAccount> students)
     {
+        SuspendLayout();
         Text = "AIRS · 관리자";
-        ClientSize = new Size(690, 437);
+        ClientSize = new Size(734, 437);
         StartPosition = FormStartPosition.CenterParent;
         BackColor = Palette.Paper;
         AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
         Palette.RoundWindow(this);
-        Controls.Add(Palette.Label("이 PC의 학생 활동", 24, 20, 625, 43, 23, true, Palette.Ink));
-        Controls.Add(Palette.Label("등록된 계정의 전체 활동 건수예요. 질문 원문은 저장하지 않아요.", 25, 68, 630, 30, 10, false, Palette.Muted));
-        var list = new ListView { Bounds = new Rectangle(24, 109, 643, 300), View = View.Details,
+        Palette.AddHomeButton(this, 24, 23);
+        Controls.Add(Palette.Label("이 PC의 학생 활동", 125, 18, 580, 43, 23, true, Palette.Ink));
+        Controls.Add(Palette.Label("이 Windows 계정에 등록된 학생의 활동을 보여줘요.", 25, 68, 680, 30, 10, false, Palette.Muted));
+        var list = new ListView { Bounds = new Rectangle(24, 109, 686, 300), View = View.Details,
             Font = Palette.Font(10), FullRowSelect = true, AccessibleName = "학생별 활동 집계",
+            ShowItemToolTips = true, BackColor = Palette.Surface, ForeColor = Palette.Ink,
             Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
-        list.Columns.Add("학생 아이디", 163);
-        list.Columns.Add("해바라기씨", 105);
-        list.Columns.Add("질문 확인", 106);
-        list.Columns.Add("과의존 신호", 112);
-        list.Columns.Add("스스로 확인", 113);
+        list.Columns.AddRange(new[] { new ColumnHeader { Text = "닉네임" }, new ColumnHeader { Text = "학생 아이디" },
+            new ColumnHeader { Text = "해바라기씨" }, new ColumnHeader { Text = "질문 확인" },
+            new ColumnHeader { Text = "과의존 신호" }, new ColumnHeader { Text = "스스로 확인" } });
+        int[] columnShares = { 25, 21, 13, 12, 15, 14 };
+        Action fitColumns = delegate
+        {
+            int width = Math.Max(0, list.ClientSize.Width - SystemInformation.VerticalScrollBarWidth);
+            for (int i = 0; i < columnShares.Length; i++) list.Columns[i].Width = width * columnShares[i] / 100;
+        };
+        list.SizeChanged += delegate { fitColumns(); };
         foreach (var student in students)
         {
             var state = HamsterProgress.Load(student);
-            list.Items.Add(new ListViewItem(new[] { student.Name, state.Points + "알",
-                state.Days.Sum(day => day.Total) + "건", state.Days.Sum(day => day.Risk) + "건", state.Days.Sum(day => day.Good) + "건" }));
+            list.Items.Add(new ListViewItem(new[] { student.DisplayName, student.Name, state.Points + "알",
+                state.Days.Sum(day => day.Total) + "건", state.Days.Sum(day => day.Risk) + "건", state.Days.Sum(day => day.Good) + "건" })
+                { ToolTipText = student.DisplayName + " · " + student.Name });
         }
         if (list.Items.Count == 0) list.Items.Add(new ListViewItem("등록된 학생이 없어요"));
         Controls.Add(list);
+        ResumeLayout(true);
+        fitColumns();
     }
 }
