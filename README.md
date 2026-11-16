@@ -4,7 +4,7 @@ AIRS(AI Reliance Regulation System)는 생성형 AI에 질문을 작성할 때 �
 
 [Windows v1.2.8 ZIP 받기](https://github.com/jeong1-j/AIRS/releases/download/v1.2.8/AIRS-Windows.zip) · [릴리스](https://github.com/jeong1-j/AIRS/releases/tag/v1.2.8) · [자료 출처와 이용 조건](THIRD_PARTY_NOTICES.md)
 
-[앱 소개 페이지](https://airs-mint.vercel.app/) · [시연 영상 · 2분 14초](https://github.com/jeong1-j/AIRS/releases/download/v1.2.8/AIRS-Demo-Enhanced-v1.2.8.mp4) · [발표 이미지와 설명](https://github.com/jeong1-j/AIRS/releases/download/v1.2.8/AIRS-Screen-Captures-v1.2.8.zip)
+[앱 소개 페이지](https://airs-mint.vercel.app/) · [시연 영상 · 2분 14초](https://github.com/jeong1-j/AIRS/releases/download/v1.2.8/AIRS-Demo-Final-v1.2.8.mp4) · [발표 이미지와 설명](https://github.com/jeong1-j/AIRS/releases/download/v1.2.8/AIRS-Screen-Captures-v1.2.8.zip)
 
 ## Windows에서 실행
 
