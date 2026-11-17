@@ -2,7 +2,7 @@
 
 [AIRS v1.2.8 실행 파일](https://github.com/jeong1-j/AIRS/releases/tag/v1.2.8)
 
-[시연 영상](https://github.com/jeong1-j/AIRS/releases/download/v1.2.8/AIRS-Demo-Final-v1.2.8.mp4) · [발표 자료](https://github.com/jeong1-j/AIRS/releases/download/v1.2.8/AIRS-Presentation-v1.2.8.zip)
+[시연 영상](https://github.com/jeong1-j/AIRS/releases/download/v1.2.8/AIRS-Demo-1080p-1.5x-v1.2.8.mp4) · [발표 자료](https://github.com/jeong1-j/AIRS/releases/download/v1.2.8/AIRS-Presentation-v1.2.8.zip)
 
 1. AIRS를 실행하고 **화면 감지 시작**을 누릅니다.
 2. ChatGPT Windows 앱에서 `풀어빨리`를 입력하되 보내지 않습니다.
